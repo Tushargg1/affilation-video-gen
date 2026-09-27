@@ -76,7 +76,7 @@ except Exception as e:
       cwd: scriptPath,
       detached: true,
       stdio: 'ignore', // Must ignore stdio to fully detach on Windows
-      windowsHide: false,
+      windowsHide: true,
     });
 
     child.unref();
