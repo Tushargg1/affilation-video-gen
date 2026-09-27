@@ -47,16 +47,13 @@ export async function POST(request: Request) {
     const bsRunning = await isBlueStacksRunning();
     if (!bsRunning) {
       fs.appendFileSync(logPath, '[Auto-Start] BlueStacks not running. Launching BlueStacks...\n');
-      const bsScript = `
-import subprocess
-try:
-    subprocess.Popen([r"C:\\Program Files\\BlueStacks_nxt\\HD-Player.exe", "--instance", "Pie64"])
-    print("BlueStacks launched")
-except Exception as e:
-    print("Error:", e)
-`.trim().replace(/\n/g, '; ');
+      const { spawn } = require('child_process');
+      const bsProcess = spawn('C:\\Program Files\\BlueStacks_nxt\\HD-Player.exe', ['--instance', 'Tiramisu64_36'], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      bsProcess.unref();
       try {
-        await execAsync(`python -c "${bsScript}"`);
         fs.appendFileSync(logPath, '[Auto-Start] BlueStacks launched! Waiting 35 seconds for it to initialize...\n');
         // Wait 35 seconds for BlueStacks to fully boot
         await new Promise(r => setTimeout(r, 35000));
