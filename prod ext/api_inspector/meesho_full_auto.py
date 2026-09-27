@@ -101,6 +101,48 @@ def dismiss_popups(dev):
     except Exception:
         pass
 
+def wait_for_results_loaded(dev, timeout=25):
+    """Wait until search results are fully loaded (loading spinner gone)."""
+    for i in range(timeout):
+        time.sleep(1)
+        try:
+            xml = dev.dump_ui()
+            if not xml:
+                continue
+            root = ET.fromstring(xml)
+            # Loading is done when overlay_progress_bar is gone AND catalog cards exist
+            has_loading = any(
+                e.attrib.get('resource-id', '') in (
+                    'com.meesho.supply:id/overlay_progress_bar',
+                    'com.meesho.supply:id/iv_loading'
+                )
+                for e in root.iter('node')
+            )
+            # Check if scrim (autocomplete dropdown) is still there
+            has_scrim = any(
+                'scrim' in e.attrib.get('resource-id', '')
+                for e in root.iter('node')
+            )
+            if has_scrim:
+                log_print("Autocomplete still showing, pressing Enter again...")
+                dev.shell("input", "keyevent", "66")
+                time.sleep(2)
+                continue
+            cards = [e for e in root.iter('node')
+                     if e.attrib.get('resource-id', '') in (
+                         'com.meesho.supply:id/item_catalog_card_optimised',
+                         'com.meesho.supply:id/catalog_card_optimised',
+                         'com.meesho.supply:id/catalog_recycler_view'
+                     )]
+            if not has_loading and len(cards) > 0:
+                log_print(f"Results loaded! Found {len(cards)} card nodes.")
+                return True
+            log_print(f"Still loading... ({i+1}s)")
+        except Exception as e:
+            log_print(f"Wait error: {e}")
+    log_print("Timeout waiting for results.")
+    return False
+
 def init_log(keyword, skip_zero):
     try:
         with open(DB_PATH.parent / "automation.log", "a", encoding="utf-8") as f:
@@ -165,7 +207,13 @@ def do_search(dev, keyword):
 
     # Dismiss any autocomplete dropdown by pressing Enter
     dev.shell("input", "keyevent", "66")  # ENTER
-    time.sleep(8)  # Wait for results to fully load and render
+    time.sleep(3)
+
+    # Wait for the search results to fully load (spinner gone, cards visible)
+    loaded = wait_for_results_loaded(dev, timeout=30)
+    if not loaded:
+        log_print("WARNING: Results may not be fully loaded, proceeding anyway...")
+        time.sleep(3)
 
     # Verify we reached the results page by checking the UI
     try:
@@ -234,10 +282,13 @@ def run_automation(target_count=5):
 
         root = ET.fromstring(xml)
 
-        # Find product cards by resource-id (robust, doesn't depend on ₹ symbol)
+        # Find product cards - try both resource-ids (layout can vary by app version)
         products = [
             e for e in root.iter('node')
-            if e.attrib.get('resource-id') == 'com.meesho.supply:id/item_catalog_card_optimised'
+            if e.attrib.get('resource-id', '') in (
+                'com.meesho.supply:id/item_catalog_card_optimised',
+                'com.meesho.supply:id/catalog_card_optimised',
+            )
             and e.attrib.get('clickable') == 'true'
         ]
 
