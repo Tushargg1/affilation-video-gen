@@ -212,8 +212,21 @@ def do_search(dev, keyword):
     # Wait for the search results to fully load (spinner gone, cards visible)
     loaded = wait_for_results_loaded(dev, timeout=30)
     if not loaded:
-        log_print("WARNING: Results may not be fully loaded, proceeding anyway...")
-        time.sleep(3)
+        log_print("WARNING: Timeout on first load. Trying tap on first search suggestion...")
+        try:
+            xml_hint = dev.dump_ui()
+            if xml_hint:
+                root_hint = ET.fromstring(xml_hint)
+                for e in root_hint.iter('node'):
+                    txt = e.attrib.get('text', '')
+                    if e.attrib.get('clickable') == 'true' and txt and keyword.split()[0].lower() in txt.lower():
+                        log_print(f"Tapping suggestion: {txt}")
+                        tap_node(dev, e)
+                        time.sleep(5)
+                        break
+        except Exception as ex:
+            log_print(f"Suggestion tap failed: {ex}")
+        wait_for_results_loaded(dev, timeout=20)
 
     # Verify we reached the results page by checking the UI
     try:
