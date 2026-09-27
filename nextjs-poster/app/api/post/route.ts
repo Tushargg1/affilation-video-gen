@@ -137,4 +137,10 @@ async function handler(request: Request) {
   }
 }
 
-export const POST = verifySignatureAppRouter(handler);
+async function rawHandler(request: Request) {
+  return handler(request);
+}
+
+export const POST = process.env.QSTASH_CURRENT_SIGNING_KEY
+  ? verifySignatureAppRouter(handler)
+  : rawHandler;
