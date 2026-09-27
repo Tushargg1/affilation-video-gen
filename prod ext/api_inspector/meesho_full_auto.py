@@ -63,9 +63,15 @@ def tap_center_of_product(dev, node):
     m = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', bounds_str)
     if m:
         x1, y1, x2, y2 = map(int, m.groups())
+        
+        # If the card is too high up on the screen, it's obscured by the search bar
+        if y1 < 200:
+            return False
+            
         cx = (x1 + x2) // 2
         # Tap at 30% from the top of the card (image area, not the price bar)
         cy = y1 + int((y2 - y1) * 0.3)
+            
         dev.shell("input", "tap", str(cx), str(cy))
         return True
     return False
@@ -302,7 +308,6 @@ def run_automation(target_count=5):
                 'com.meesho.supply:id/item_catalog_card_optimised',
                 'com.meesho.supply:id/catalog_card_optimised',
             )
-            and e.attrib.get('clickable') == 'true'
         ]
 
         log_print(f"\nFound {len(products)} product cards. Collected {collected}/{target_count}.")
@@ -399,42 +404,7 @@ def run_automation(target_count=5):
                 time.sleep(3)
                 continue
 
-            # "X Similar Products" page - tap the first product item on this page
-            if "similar products" in data["title"].lower():
-                log_print("Landed on Similar Products page, tapping first product...")
-                # Scroll to find and tap first product item
-                dev.shell("input", "tap", "225", "600")  # tap left product area
-                time.sleep(6)
-                # Re-dump and re-extract data
-                try:
-                    xml_single = dev.dump_ui()
-                    if xml_single:
-                        root_single = ET.fromstring(xml_single)
-                        data = {"title": "", "price": 0.0, "commission_percent": 0.0, "product_url": ""}
-                        for elem in root_single.iter():
-                            t = elem.attrib.get('text', '') or elem.attrib.get('content-desc', '')
-                            rid = elem.attrib.get('resource-id', '')
-                            if len(t) > 15 and not data["title"] and "http" not in t and "@" not in t:
-                                data["title"] = t.strip()
-                            if rid == 'com.meesho.supply:id/price' and not data["price"]:
-                                m = re.search(r'(\d+)', t)
-                                if m: data["price"] = float(m.group(1))
-                            if "commission" in t.lower() and not data["commission_percent"]:
-                                m = re.search(r'(\d+(?:\.\d+)?)\s*%', t)
-                                if m: data["commission_percent"] = float(m.group(1))
-                        log_print(f"After tap: Title: {data['title'][:40]} | Price: ₹{data['price']}")
-                        if "similar products" in data["title"].lower() or not data["title"]:
-                            log_print("Still on bundle page, backing out.")
-                            dev.shell("input", "keyevent", "4")
-                            dev.shell("input", "keyevent", "4")
-                            time.sleep(3)
-                            continue
-                except Exception as e:
-                    log_print(f"Error navigating similar products: {e}")
-                    dev.shell("input", "keyevent", "4")
-                    dev.shell("input", "keyevent", "4")
-                    time.sleep(3)
-                    continue
+
 
             if skip_zero and data["commission_percent"] == 0.0:
                 log_print("0% commission, skipping.")

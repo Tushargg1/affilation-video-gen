@@ -1,16 +1,14 @@
-import time
-import xml.etree.ElementTree as ET
+import sys, xml.etree.ElementTree as ET
+sys.path.insert(0, r'c:\Users\tusha\OneDrive\Desktop\affilation video gen\prod ext\api_inspector')
 from meesho_emulator_collector import AdbClient
-
-def run():
-    dev = AdbClient('127.0.0.1:5915')
-    xml = dev.dump_ui()
-    root = ET.fromstring(xml.encode('utf-8'))
-    print("ALL TEXT NODES:")
-    for elem in root.iter('node'):
-        text = elem.attrib.get('text', '')
-        if text:
-            print(text, elem.attrib.get('resource-id'), elem.attrib.get('bounds'))
-
-if __name__ == '__main__':
-    run()
+dev = AdbClient('127.0.0.1:5915')
+xml = dev.dump_ui()
+root = ET.fromstring(xml)
+print("=== TEXT NODES ===")
+for e in root.iter('node'):
+    txt = e.attrib.get('text', '') or e.attrib.get('content-desc', '')
+    if txt and len(txt) > 2:
+        rid = e.attrib.get('resource-id', '')
+        # replace rupeee symbol with RS
+        txt = txt.replace('\u20b9', 'RS')
+        print(f"[{rid}] {txt}")
