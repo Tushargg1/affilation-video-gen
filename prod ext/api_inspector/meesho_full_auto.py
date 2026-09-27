@@ -308,7 +308,7 @@ def run_automation(target_count=15):
     keyword = sys.argv[1] if len(sys.argv) > 1 else "mens lowers"
     skip_zero = (len(sys.argv) > 2 and sys.argv[2] == "skip_zero")
     init_log(keyword, skip_zero)
-    log_print("Initializing ADB and BlueStacks...")
+    log_print("Initializing ADB and Android Studio Pixel 8 Emulator...")
     sys.stdout.reconfigure(encoding='utf-8')
     setup_db()
     dev = AdbClient('emulator-5554')
