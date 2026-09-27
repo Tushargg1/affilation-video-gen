@@ -118,14 +118,14 @@ def wait_for_results_loaded(dev, timeout=25):
                 )
                 for e in root.iter('node')
             )
-            # Check if scrim (autocomplete dropdown) is still there
+            # Check if scrim (autocomplete dropdown) is still there - tap below to dismiss
             has_scrim = any(
                 'scrim' in e.attrib.get('resource-id', '')
                 for e in root.iter('node')
             )
             if has_scrim:
-                log_print("Autocomplete still showing, pressing Enter again...")
-                dev.shell("input", "keyevent", "66")
+                log_print("Autocomplete still showing, tapping below to dismiss...")
+                dev.shell("input", "tap", "450", "1400")  # tap below keyboard
                 time.sleep(2)
                 continue
             # Only count ACTUAL clickable product cards (not the recycler container)
