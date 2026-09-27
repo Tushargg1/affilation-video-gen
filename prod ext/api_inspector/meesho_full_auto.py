@@ -93,6 +93,19 @@ def dismiss_popups(dev):
         if not xml:
             return
         root = ET.fromstring(xml)
+        # Handle ANR "isn't responding" dialog - tap "Wait"
+        anr_wait = find_node(root, "wait", clickable=True)
+        anr_close = find_node(root, "close app", clickable=True)
+        if anr_wait:
+            log_print("ANR dialog detected! Tapping 'Wait'...")
+            tap_node(dev, anr_wait)
+            time.sleep(5)
+            return
+        if anr_close:
+            log_print("ANR dialog detected! Tapping 'Close app' and restarting Meesho...")
+            tap_node(dev, anr_close)
+            time.sleep(3)
+            return
         if find_node(root, "real images"):
             log_print("Dismissing 'Real Images' popup...")
             dev.shell("input", "keyevent", "4")
@@ -167,33 +180,63 @@ def log_print(*args):
     except Exception:
         pass
 
+EMULATOR_EXE = r"C:\Users\tusha\AppData\Local\Android\Sdk\emulator\emulator.exe"
+
+def launch_android_emulator():
+    """Launch the Pixel_8 AVD with angle_indirect GPU (stable on this machine)."""
+    log_print("Auto-launching Android Studio Pixel 8 emulator (angle_indirect GPU)...")
+    try:
+        sp.Popen(
+            [EMULATOR_EXE, "-avd", "Pixel_8", "-no-snapshot-load", "-no-boot-anim", "-gpu", "angle_indirect"],
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
+        log_print("Emulator process started. Waiting for ADB...")
+    except Exception as e:
+        log_print(f"Failed to launch emulator: {e}")
+
 def ensure_emulator_running(dev):
+    # First quick check - already fully booted?
     try:
         if "alive" in dev.shell("echo", "alive", timeout=5):
-            log_print("Emulator is ready! Disabling animations to speed up uiautomator...")
-            dev.shell("settings", "put", "global", "window_animation_scale", "0")
-            dev.shell("settings", "put", "global", "transition_animation_scale", "0")
-            dev.shell("settings", "put", "global", "animator_duration_scale", "0")
-            return True
+            boot = dev.shell("getprop", "sys.boot_completed", timeout=5).strip()
+            if boot == "1":
+                log_print("Emulator is ready and fully booted!")
+                _disable_animations(dev)
+                return True
     except Exception:
         pass
 
-    log_print("Emulator not running. Waiting for emulator-5554 to boot...")
-    for i in range(60):
+    # Auto-launch the emulator and wait for full boot
+    launch_android_emulator()
+    log_print("Waiting up to 4 minutes for emulator-5554 to fully boot...")
+    for i in range(120):
         time.sleep(2)
         try:
-            if "alive" in dev.shell("echo", "alive", timeout=2):
-                log_print("Emulator is ready! Disabling animations to speed up uiautomator...")
-                dev.shell("settings", "put", "global", "window_animation_scale", "0")
-                dev.shell("settings", "put", "global", "transition_animation_scale", "0")
-                dev.shell("settings", "put", "global", "animator_duration_scale", "0")
-                time.sleep(2)
+            alive = dev.shell("echo", "alive", timeout=3)
+            if "alive" not in alive:
+                continue
+            boot = dev.shell("getprop", "sys.boot_completed", timeout=5).strip()
+            if boot == "1":
+                log_print(f"Emulator booted! ({i*2}s elapsed) Waiting 20s for services to initialize...")
+                time.sleep(20)  # Wait for settings/activity services to be ready
+                _disable_animations(dev)
                 return True
         except Exception:
             pass
-            
+
     log_print("Timeout waiting for Android Studio Emulator.")
     return False
+
+def _disable_animations(dev):
+    """Disable Android animations for faster UI automation."""
+    try:
+        dev.shell("settings", "put", "global", "window_animation_scale", "0")
+        dev.shell("settings", "put", "global", "transition_animation_scale", "0")
+        dev.shell("settings", "put", "global", "animator_duration_scale", "0")
+        log_print("Animations disabled.")
+    except Exception as e:
+        log_print(f"Could not disable animations (non-fatal): {e}")
 
 def do_search(dev, keyword):
     """Search for keyword in Meesho. Returns True if search was submitted."""
