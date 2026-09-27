@@ -601,9 +601,9 @@ def cmd_inspect(args: argparse.Namespace) -> None:
     canonical.write_text(xml, encoding="utf-8")
     log.info("UI dumped: %s  (%d bytes)", dump_path, len(xml))
 
-    from app.tools.meesho_emulator_parser import parse_ui_xml, summarize_nodes
-    nodes = parse_ui_xml(xml)
-    summary = summarize_nodes(nodes)
+    # from app.tools.meesho_emulator_parser import parse_ui_xml, summarize_nodes
+    # nodes = parse_ui_xml(xml)
+    # summary = summarize_nodes(nodes)
 
     result = {
         "serial": serial,
