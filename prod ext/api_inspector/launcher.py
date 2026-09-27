@@ -7,7 +7,7 @@ import sys
 
 print("Starting Cloudflare Tunnel...")
 # Use shell=True for npx
-p = subprocess.Popen('npx cloudflared tunnel --url http://localhost:3000', shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+p = subprocess.Popen('npx cloudflared tunnel --url http://localhost:3333', shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 
 opened = False
 buffer = ""
