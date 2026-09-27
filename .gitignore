@@ -1,0 +1,87 @@
+# ===========================
+# Dependencies
+# ===========================
+**/node_modules/
+**/.pnp
+**/.pnp.*
+
+# ===========================
+# Environment & Secrets
+# ===========================
+**/.env
+**/.env.*
+!**/.env.example
+
+# Secret scripts (contain API keys)
+nextjs-poster/add_yt_envs.js
+nextjs-poster/add_meta_envs.js
+nextjs-poster/add_blob_envs.js
+nextjs-poster/check_status.js
+nextjs-poster/check_status.mjs
+nextjs-poster/test_meta_post.mjs
+nextjs-poster/test_yt_post.mjs
+video gen/test_insert.js
+video gen/test_insert_real.js
+video gen/test_upload_schedule.js
+
+# ===========================
+# Build Outputs
+# ===========================
+**/.next/
+**/out/
+**/build/
+**/.vercel/
+**/*.tsbuildinfo
+**/next-env.d.ts
+
+# ===========================
+# Python
+# ===========================
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+**/venv/
+**/.venv/
+
+# ===========================
+# Large/Binary files
+# ===========================
+*.mp4
+*.mov
+*.webm
+*.avi
+*.mkv
+
+# ===========================
+# Logs
+# ===========================
+logs/
+**/*.log
+**/npm-debug.log*
+
+# ===========================
+# Database (local only)
+# ===========================
+**/*.db
+**/*.sqlite
+
+# ===========================
+# OS Files
+# ===========================
+.DS_Store
+Thumbs.db
+
+# ===========================
+# IDE
+# ===========================
+.vscode/
+.idea/
+**/.claude/
+
+# ===========================
+# Misc
+# ===========================
+**/debug/
+video gen/digen-extension/  

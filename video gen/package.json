@@ -1,0 +1,24 @@
+{
+  "name": "video-gen",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@vercel/blob": "^2.8.0",
+    "dotenv": "^18.0.4",
+    "express": "^5.2.1",
+    "playwright": "^1.63.0",
+    "puppeteer": "^25.11.0",
+    "puppeteer-core": "^25.11.0",
+    "selenium-webdriver": "^4.49.0",
+    "sqlite3": "^6.0.1"
+  }
+}
