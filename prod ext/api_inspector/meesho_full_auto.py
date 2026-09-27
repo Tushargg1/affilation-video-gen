@@ -275,6 +275,15 @@ def run_automation(target_count=10):
                 time.sleep(4)
                 continue
                 
+            # Strict Relevance Filter (Ignore unrelated sponsored items)
+            kw_words = [w.lower() for w in keyword.split() if len(w) > 2]
+            title_lower = data["title"].lower()
+            if kw_words and not any(w in title_lower for w in kw_words):
+                log_print(f"Skipping '{data['title'][:20]}...' (Not related to '{keyword}')")
+                dev.shell("input", "keyevent", "4")
+                time.sleep(3)
+                continue
+                
             # Skip 0% Commission
             if skip_zero and data["commission_percent"] == 0.0:
                 log_print(f"Skipping product '{data['title'][:20]}...' because commission is 0%.")
