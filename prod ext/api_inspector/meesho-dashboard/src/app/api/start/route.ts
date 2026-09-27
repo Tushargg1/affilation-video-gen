@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 
 async function isPythonRunning(): Promise<boolean> {
   try {
-    const { stdout } = await execAsync(`python -c "import psutil; r=any('meesho_full_auto' in ' '.join(p.info.get('cmdline') or []) for p in psutil.process_iter(['cmdline'])); print(r)"`);
+    const { stdout } = await execAsync(`python -c "import psutil; r=any('meesho_full_auto' in ' '.join(p.info.get('cmdline') or []) and 'psutil' not in ' '.join(p.info.get('cmdline') or []) for p in psutil.process_iter(['cmdline'])); print(r)"`);
     return stdout.trim() === 'True';
   } catch {
     return false;
