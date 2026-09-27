@@ -44,7 +44,7 @@ async function handler(request: Request) {
       }
     }
 
-    let postLinks: any = {};
+    const postLinks: any = {};
 
     // 2. Upload to YouTube
     if (platforms.includes('youtube') && process.env.YOUTUBE_CLIENT_ID && process.env.YOUTUBE_REFRESH_TOKEN) {

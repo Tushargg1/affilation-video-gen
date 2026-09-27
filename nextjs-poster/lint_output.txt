@@ -1,0 +1,119 @@
+
+> nextjs-poster@0.1.0 lint
+> eslint
+
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\add_blob_envs.js
+   1:22  error    A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:14  warning  'e' is defined but never used            @typescript-eslint/no-unused-vars
+  19:16  warning  'err' is defined but never used          @typescript-eslint/no-unused-vars
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\add_envs.js
+   1:22  error    A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  15:14  warning  'e' is defined but never used            @typescript-eslint/no-unused-vars
+  19:16  warning  'err' is defined but never used          @typescript-eslint/no-unused-vars
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\add_meta_envs.js
+   1:22  error    A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  19:18  warning  'e' is defined but never used            @typescript-eslint/no-unused-vars
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\add_yt_envs.js
+   1:22  error    A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  16:14  warning  'e' is defined but never used            @typescript-eslint/no-unused-vars
+  20:16  warning  'err' is defined but never used          @typescript-eslint/no-unused-vars
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\app\api\cancel\route.ts
+  41:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\app\api\config\route.ts
+  39:12  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  60:40  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  64:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\app\api\history\route.ts
+  25:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\app\api\post\route.ts
+   15:11   error  'videoUrl' is never reassigned. Use 'const' instead   prefer-const
+   15:21   error  'blobName' is never reassigned. Use 'const' instead   prefer-const
+   15:44   error  'platforms' is never reassigned. Use 'const' instead  prefer-const
+   47:9    error  'postLinks' is never reassigned. Use 'const' instead  prefer-const
+   47:20   error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  120:75   error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  120:125  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  128:75   error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  128:132  error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  134:19   error  Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\app\api\publish-ig\route.ts
+  32:21   warning  'err' is defined but never used           @typescript-eslint/no-unused-vars
+  48:74   error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:124  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:19   error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\app\api\schedule\route.ts
+  39:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:25  error  A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+  74:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\app\api\tunnel\route.ts
+  18:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  32:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\app\api\upload\route.ts
+  11:37  warning  'pathname' is defined but never used      @typescript-eslint/no-unused-vars
+  18:41  warning  'tokenPayload' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\app\page.tsx
+   14:42  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+   19:44  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  118:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\app\page.tsx:118:5
+  116 |
+  117 |   useEffect(() => {
+> 118 |     fetchHistory();
+      |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  119 |     syncTunnelUrl();
+  120 |     
+  121 |     // Load persisted settings                                                                                                                                   react-hooks/set-state-in-effect
+  136:6   warning  React Hook useEffect has a missing dependency: 'syncTunnelUrl'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+  145:6   warning  React Hook useEffect has a missing dependency: 'fetchMeeshoData'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      react-hooks/exhaustive-deps
+  167:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\app\page.tsx:167:7
+  165 |     // Auto-clear start timer if extraction began
+  166 |     if (timerAction === 'start' && logs.includes('Starting extraction')) {
+> 167 |       setActionStartTime(null);
+      |       ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  168 |       setTimerAction(null);
+  169 |     }
+  170 |   }, [logs, timerAction]);  react-hooks/set-state-in-effect
+  229:51  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  259:7   warning  Expected an assignment or function call and instead saw an expression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-expressions
+  268:61  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  395:19  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  413:14  warning  'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+  650:31  warning  'isCancelled' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+  905:46  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+
+C:\Users\tusha\OneDrive\Desktop\affilation video gen\nextjs-poster\check_status.js
+  1:1  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+✖ 53 problems (37 errors, 16 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

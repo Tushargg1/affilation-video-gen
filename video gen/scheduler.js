@@ -8,7 +8,6 @@ const { put } = require('@vercel/blob');
 
 const dbPath = path.join(__dirname, '..', 'prod ext', 'api_inspector', 'data', 'meesho_products.db');
 
-const configPath = path.join(__dirname, '..', 'prod ext', 'api_inspector', 'data', 'scheduler_config.json');
 
 async function getConfig() {
     const defaultConfig = {
@@ -146,48 +145,48 @@ async function checkAndGenerate() {
                             console.log(`> Found generated video: ${latestMp4}`);
 
                             // ==========================================
-                            // UPLOAD TO VERCEL BLOB (COMMENTED OUT FOR TESTING)
+                            // UPLOAD TO VERCEL BLOB
                             // ==========================================
-                            // console.log(`> Uploading to Vercel Blob...`);
-                            // if (!process.env.BLOB_READ_WRITE_TOKEN) {
-                            //     throw new Error("BLOB_READ_WRITE_TOKEN is missing in .env");
-                            // }
-                            // 
-                            // const fileBuffer = fs.readFileSync(latestMp4);
-                            // const blobName = `video_${product.id}_${Date.now()}.mp4`;
-                            // const { url: videoUrl } = await put(blobName, fileBuffer, {
-                            //     access: 'public',
-                            //     token: process.env.BLOB_READ_WRITE_TOKEN
-                            // });
-                            // console.log(`> Uploaded successfully: ${videoUrl}`);
+                            console.log(`> Uploading to Vercel Blob...`);
+                            if (!process.env.BLOB_READ_WRITE_TOKEN) {
+                                throw new Error("BLOB_READ_WRITE_TOKEN is missing in .env");
+                            }
+                            
+                            const fileBuffer = fs.readFileSync(latestMp4);
+                            const blobName = `video_${product.id}_${Date.now()}.mp4`;
+                            const { url: videoUrl } = await put(blobName, fileBuffer, {
+                                access: 'public',
+                                token: process.env.BLOB_READ_WRITE_TOKEN
+                            });
+                            console.log(`> Uploaded successfully: ${videoUrl}`);
                             
                             // Cleanup local file (optional: remove if you want to keep copies locally)
                             // fs.unlinkSync(latestMp4);
 
                             // ==========================================
-                            // SEND TO NEXT.JS QSTASH SCHEDULER (COMMENTED OUT FOR TESTING)
+                            // SEND TO NEXT.JS QSTASH SCHEDULER
                             // ==========================================
-                            // const scheduleTime = getNextScheduleTime(generatedToday, config);
-                            // console.log(`> Scheduling post for: ${new Date(scheduleTime).toLocaleString()}`);
-                            // 
-                            // const scheduleRes = await fetch('https://nextjs-poster-eta.vercel.app/api/schedule', {
-                            //     method: 'POST',
-                            //     headers: { 'Content-Type': 'application/json' },
-                            //     body: JSON.stringify({
-                            //         videoUrl: videoUrl,
-                            //         blobName: blobName,
-                            //         description: '', // Leaving this blank makes your Next.js server write an engaging caption via Gemini!
-                            //         platforms: ['youtube', 'facebook', 'instagram'],
-                            //         scheduleTime: scheduleTime
-                            //     })
-                            // });
-                            // 
-                            // const scheduleData = await scheduleRes.json();
-                            // if (!scheduleRes.ok) {
-                            //     throw new Error(`Scheduling failed: ${scheduleData.error || JSON.stringify(scheduleData)}`);
-                            // }
-                            // 
-                            // console.log(`> Scheduled successfully! QStash Message ID: ${scheduleData.messageId}`);
+                            const scheduleTime = getNextScheduleTime(generatedToday, config);
+                            console.log(`> Scheduling post for: ${new Date(scheduleTime).toLocaleString()}`);
+                            
+                            const scheduleRes = await fetch('https://nextjs-poster-eta.vercel.app/api/schedule', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    videoUrl: videoUrl,
+                                    blobName: blobName,
+                                    description: '', // Leaving this blank makes your Next.js server write an engaging caption via Gemini!
+                                    platforms: ['youtube', 'facebook', 'instagram'],
+                                    scheduleTime: scheduleTime
+                                })
+                            });
+                            
+                            const scheduleData = await scheduleRes.json();
+                            if (!scheduleRes.ok) {
+                                throw new Error(`Scheduling failed: ${scheduleData.error || JSON.stringify(scheduleData)}`);
+                            }
+                            
+                            console.log(`> Scheduled successfully! QStash Message ID: ${scheduleData.messageId}`);
 
                             // ==========================================
                             // UPDATE LOCAL DATABASE
