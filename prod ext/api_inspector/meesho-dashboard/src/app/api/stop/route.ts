@@ -11,13 +11,10 @@ export async function POST() {
     fs.appendFileSync(logPath, stopMsg);
   }
 
-  // Kill Python scraper
+  // Kill Python scraper only (keep BlueStacks running for fast restarts)
   const killScript = path.join(process.cwd(), 'scripts', 'kill.py');
   exec(`python "${killScript}"`);
   
-  // Kill BlueStacks (this automatically closes Meesho)
-  exec('taskkill /F /IM HD-Player.exe');
-
-  // Note: NOT killing Next.js or Cloudflare so the Vercel UI remains functional for the next Start.
-  return NextResponse.json({ message: 'Automation and BlueStacks are stopping...' });
+  // Note: NOT killing BlueStacks, Next.js, or Cloudflare so the next Start is instant.
+  return NextResponse.json({ message: 'Automation stopped. BlueStacks kept running for quick restart.' });
 }
