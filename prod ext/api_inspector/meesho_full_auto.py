@@ -161,11 +161,11 @@ def do_search(dev, keyword):
 
     # Type keyword (spaces must be %s for adb input text)
     dev.shell("input", "text", keyword.replace(" ", "%s"))
-    time.sleep(1.5)
+    time.sleep(2)
 
     # Dismiss any autocomplete dropdown by pressing Enter
     dev.shell("input", "keyevent", "66")  # ENTER
-    time.sleep(5)  # Wait for results to load
+    time.sleep(8)  # Wait for results to fully load and render
 
     # Verify we reached the results page by checking the UI
     try:
@@ -210,7 +210,7 @@ def run_automation(target_count=5):
     dev.shell("am", "force-stop", "com.meesho.supply")
     time.sleep(2)
     dev.shell("monkey", "-p", "com.meesho.supply", "-c", "android.intent.category.LAUNCHER", "1")
-    time.sleep(8)  # Wait for Meesho to fully load its home screen
+    time.sleep(10)  # Wait for Meesho to fully load its home screen
 
     do_search(dev, keyword)
 
@@ -406,10 +406,10 @@ def run_automation(target_count=5):
 
             # Navigate back to search results
             dev.shell("input", "keyevent", "4")
-            time.sleep(3)
-            # If we opened a share sheet, press back again
-            dev.shell("input", "keyevent", "4")
             time.sleep(2)
+            # If we opened a share sheet, press back again to get back to feed
+            dev.shell("input", "keyevent", "4")
+            time.sleep(8)  # CRITICAL: wait for search results feed to re-render
 
             if not data["product_url"] or not data["product_url"].startswith("http"):
                 log_print("No affiliate URL — not saving this product.")
@@ -441,7 +441,7 @@ def run_automation(target_count=5):
             log_print("Scrolling to load more products...")
             dev.shell("input", "swipe", "450", "1400", "450", "400", "600")
             scroll_count += 1
-            time.sleep(4)
+            time.sleep(6)  # Give extra time for images to load after scroll
 
             # After many scrolls, re-search to get a fresh feed
             if scroll_count > 20:
