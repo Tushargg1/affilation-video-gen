@@ -27,7 +27,7 @@ async function isBlueStacksRunning(): Promise<boolean> {
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const keyword = body.keyword || 'kurti';
+    const keyword = body.keyword || 'mens lowers';
     const skipZeroArg = body.skipZero ? 'skip_zero' : 'allow_zero';
 
     // Check if already running

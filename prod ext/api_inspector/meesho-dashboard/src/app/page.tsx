@@ -6,7 +6,7 @@ export default function Home() {
   const [products, setProducts] = useState<Record<string, unknown>[]>([]);
   const [logs, setLogs] = useState<string>('');
   const [isRunning, setIsRunning] = useState(false);
-  const [keyword, setKeyword] = useState('kurti');
+  const [keyword, setKeyword] = useState('mens lowers');
   const [skipZero, setSkipZero] = useState(true);
   
   const [searchQuery, setSearchQuery] = useState('');
