@@ -128,14 +128,14 @@ def wait_for_results_loaded(dev, timeout=25):
                 dev.shell("input", "keyevent", "66")
                 time.sleep(2)
                 continue
+            # Only count ACTUAL clickable product cards (not the recycler container)
             cards = [e for e in root.iter('node')
                      if e.attrib.get('resource-id', '') in (
                          'com.meesho.supply:id/item_catalog_card_optimised',
                          'com.meesho.supply:id/catalog_card_optimised',
-                         'com.meesho.supply:id/catalog_recycler_view'
-                     )]
+                     ) and e.attrib.get('clickable') == 'true']
             if not has_loading and len(cards) > 0:
-                log_print(f"Results loaded! Found {len(cards)} card nodes.")
+                log_print(f"Results loaded! Found {len(cards)} product cards.")
                 return True
             log_print(f"Still loading... ({i+1}s)")
         except Exception as e:
@@ -458,9 +458,11 @@ def run_automation(target_count=5):
             # Navigate back to search results
             dev.shell("input", "keyevent", "4")
             time.sleep(2)
-            # If we opened a share sheet, press back again to get back to feed
+            # Dismiss share sheet if still open
             dev.shell("input", "keyevent", "4")
-            time.sleep(8)  # CRITICAL: wait for search results feed to re-render
+            time.sleep(2)
+            # Smart wait: poll until product cards are visible again
+            wait_for_results_loaded(dev, timeout=20)
 
             if not data["product_url"] or not data["product_url"].startswith("http"):
                 log_print("No affiliate URL — not saving this product.")
