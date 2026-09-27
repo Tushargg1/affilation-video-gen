@@ -125,10 +125,11 @@ def _pick_instance(conf: dict[str, str], preferred: str | None) -> dict | None:
 # ---------------------------------------------------------------------------
 
 def _find_adb() -> str:
+    sdk_adb = Path(r"C:\Users\tusha\AppData\Local\Android\Sdk\platform-tools\adb.exe")
+    if sdk_adb.exists():
+        return str(sdk_adb)
     if ADB_LOCAL.exists():
         return str(ADB_LOCAL)
-    if BS_ADB.exists():
-        return str(BS_ADB)
     which = shutil.which("adb")
     if which:
         return which
@@ -231,21 +232,28 @@ class AdbClient:
 
     def dump_ui(self, save_path: Path | None = None) -> str:
         remote = "/sdcard/window_dump.xml"
-        out = self.shell("uiautomator", "dump", remote, timeout=30)
-        log.info("uiautomator dump output: %s", out)
-        xml = self.run("exec-out", "cat", remote, timeout=20)
-        
-        # FIX ADB BUG: Strip adb server warning logs if present
-        if "<?xml" in xml:
-            xml = xml[xml.index("<?xml"):]
+        for attempt in range(3):
+            self.shell("rm", "-f", remote, timeout=10)
+            try:
+                out = self.shell("uiautomator", "dump", "--compressed", remote, timeout=15)
+                log.info("uiautomator dump output: %s", out)
+            except Exception as e:
+                log.warning("uiautomator dump error (often idle state): %s", e)
+            xml = self.run("exec-out", "cat", remote, timeout=20)
             
-        if not xml.strip().startswith("<?xml"):
-            log.error("XML output was: %s", repr(xml[:100]))
-            raise RuntimeError("UIAutomator did not return valid XML")
-        if save_path:
-            save_path.parent.mkdir(parents=True, exist_ok=True)
-            save_path.write_text(xml, encoding="utf-8")
-        return xml
+            # FIX ADB BUG: Strip adb server warning logs if present
+            if "<?xml" in xml:
+                xml = xml[xml.index("<?xml"):]
+                
+            if xml.strip().startswith("<?xml"):
+                if save_path:
+                    save_path.parent.mkdir(parents=True, exist_ok=True)
+                    save_path.write_text(xml, encoding="utf-8")
+                return xml
+            log.warning("Dump failed, retrying... (%d/3)", attempt + 1)
+            time.sleep(2)
+        log.error("XML output was invalid after 3 attempts.")
+        return ""
 
     def tap(self, x: int, y: int) -> None:
         self.shell("input", "tap", str(x), str(y), timeout=10)

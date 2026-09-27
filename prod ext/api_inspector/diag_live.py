@@ -9,7 +9,7 @@ from collections import Counter
 sys.path.insert(0, r'c:\Users\tusha\OneDrive\Desktop\affilation video gen\prod ext\api_inspector')
 from meesho_emulator_collector import AdbClient
 
-dev = AdbClient('127.0.0.1:5915')
+dev = AdbClient('emulator-5554')
 
 print("[1] Opening Meesho...")
 dev.shell('am', 'force-stop', 'com.meesho.supply')

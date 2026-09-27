@@ -733,12 +733,12 @@ export default function Home() {
                 </div>
                 <div className={`p-3 rounded-xl border flex flex-col justify-center transition-colors ${isBlueStacksRunning ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-700">BlueStacks</span>
+                    <span className="text-sm font-semibold text-slate-700">Pixel 8 Emulator</span>
                     <div className={`w-3 h-3 rounded-full ${isBlueStacksRunning ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`} />
                   </div>
                   {!isBlueStacksRunning && isConnected && (
                     <button onClick={launchBlueStacks} disabled={isLaunchingBS} className="mt-2 w-full py-1 text-xs font-bold bg-white text-indigo-600 border border-indigo-100 hover:bg-indigo-50 rounded-lg transition-colors shadow-sm">
-                      {isLaunchingBS ? 'Launching...' : '🚀 Launch'}
+                      {isLaunchingBS ? 'Launching...' : '🚀 Launch Pixel 8'}
                     </button>
                   )}
                 </div>
@@ -792,10 +792,10 @@ export default function Home() {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-indigo-900">
-                      {timerAction === 'start' ? 'Initializing BlueStacks & App...' : 'Closing Emulators & Cleaning Up...'}
+                      {timerAction === 'start' ? 'Initializing Pixel 8 Emulator & App...' : 'Stopping Emulator & Cleaning Up...'}
                     </h3>
                     <p className="text-xs text-indigo-600 font-medium">
-                      Expected wait: {timerAction === 'start' ? '~35 seconds' : '~5 seconds'}
+                      Expected wait: {timerAction === 'start' ? '~45 seconds' : '~5 seconds'}
                     </p>
                   </div>
                 </div>

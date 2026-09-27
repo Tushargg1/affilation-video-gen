@@ -139,7 +139,8 @@ def wait_for_results_loaded(dev, timeout=25):
                      if e.attrib.get('resource-id', '') in (
                          'com.meesho.supply:id/item_catalog_card_optimised',
                          'com.meesho.supply:id/catalog_card_optimised',
-                     ) and e.attrib.get('clickable') == 'true']
+                         'item_0', 'container_0'
+                     )]
             if not has_loading and len(cards) > 0:
                 log_print(f"Results loaded! Found {len(cards)} product cards.")
                 return True
@@ -166,57 +167,60 @@ def log_print(*args):
     except Exception:
         pass
 
-def ensure_bluestacks_running(dev):
+def ensure_emulator_running(dev):
     try:
         if "alive" in dev.shell("echo", "alive", timeout=5):
-            sp.Popen(
-                ["powershell", "-command", "(New-Object -ComObject WScript.Shell).AppActivate('BlueStacks App Player')"],
-                stdout=sp.DEVNULL, stderr=sp.DEVNULL, creationflags=0x08000000
-            )
+            log_print("Emulator is ready! Disabling animations to speed up uiautomator...")
+            dev.shell("settings", "put", "global", "window_animation_scale", "0")
+            dev.shell("settings", "put", "global", "transition_animation_scale", "0")
+            dev.shell("settings", "put", "global", "animator_duration_scale", "0")
             return True
     except Exception:
         pass
 
-    log_print("BlueStacks not running. Launching Tiramisu64_36...")
-    try:
-        sp.Popen([r"C:\Program Files\BlueStacks_nxt\HD-Player.exe", "--instance", "Tiramisu64_36"])
-        log_print("Waiting up to 60s for BlueStacks to boot...")
-        for i in range(60):
-            time.sleep(1)
-            try:
-                if "alive" in dev.shell("echo", "alive", timeout=2):
-                    log_print("BlueStacks ready!")
-                    time.sleep(5)
-                    return True
-            except Exception:
-                pass
-    except Exception as e:
-        log_print(f"Failed to launch BlueStacks: {e}")
+    log_print("Emulator not running. Waiting for emulator-5554 to boot...")
+    for i in range(60):
+        time.sleep(2)
+        try:
+            if "alive" in dev.shell("echo", "alive", timeout=2):
+                log_print("Emulator is ready! Disabling animations to speed up uiautomator...")
+                dev.shell("settings", "put", "global", "window_animation_scale", "0")
+                dev.shell("settings", "put", "global", "transition_animation_scale", "0")
+                dev.shell("settings", "put", "global", "animator_duration_scale", "0")
+                time.sleep(2)
+                return True
+        except Exception:
+            pass
+            
+    log_print("Timeout waiting for Android Studio Emulator.")
     return False
 
 def do_search(dev, keyword):
     """Search for keyword in Meesho. Returns True if search was submitted."""
     log_print(f"Searching for '{keyword}'...")
     # Tap the search bar (coordinates tuned for the Tiramisu instance)
-    dev.shell("input", "tap", "450", "174")
+    dev.shell("input", "tap", "450", "350")
     time.sleep(2)
 
     # Clear existing text
     dev.shell("input", "keyevent", "123")   # MOVE_END
-    for _ in range(40):
-        dev.shell("input", "keyevent", "67")  # BACKSPACE
+    # Pass many 67 (BACKSPACE) keyevents in a single call to speed up
+    backspaces = ["67"] * 40
+    dev.shell("input", "keyevent", *backspaces)
     time.sleep(0.5)
 
-    # Type keyword (spaces must be %s for adb input text)
-    dev.shell("input", "text", keyword.replace(" ", "%s"))
+    for i, word in enumerate(keyword.split()):
+        if i > 0:
+            dev.shell("input", "keyevent", "62") # Space
+        dev.shell("input", "text", word)
+        time.sleep(0.5)
     time.sleep(2)
-
-    # Dismiss any autocomplete dropdown by pressing Enter
-    dev.shell("input", "keyevent", "66")  # ENTER
+    
+    # Tap the first autocomplete suggestion directly (Y=350)
+    dev.shell("input", "tap", "500", "350")
     time.sleep(3)
-
-    # Wait for the search results to fully load (spinner gone, cards visible)
-    loaded = wait_for_results_loaded(dev, timeout=30)
+    # Wait for the search results to fully load
+    loaded = wait_for_results_loaded(dev, timeout=60)
     if not loaded:
         log_print("WARNING: Timeout on first load. Trying tap on first search suggestion...")
         try:
@@ -257,17 +261,17 @@ def do_search(dev, keyword):
     log_print("On search results feed. Starting extraction...")
     return True
 
-def run_automation(target_count=5):
+def run_automation(target_count=15):
     keyword = sys.argv[1] if len(sys.argv) > 1 else "mens lowers"
     skip_zero = (len(sys.argv) > 2 and sys.argv[2] == "skip_zero")
     init_log(keyword, skip_zero)
     log_print("Initializing ADB and BlueStacks...")
     sys.stdout.reconfigure(encoding='utf-8')
     setup_db()
-    dev = AdbClient('127.0.0.1:5915')
+    dev = AdbClient('emulator-5554')
 
-    if not ensure_bluestacks_running(dev):
-        log_print("Error: Could not connect to BlueStacks. Aborting.")
+    if not ensure_emulator_running(dev):
+        log_print("Error: Could not connect to Emulator. Aborting.")
         return
 
     # Clear clipboard to avoid stale links
@@ -307,6 +311,7 @@ def run_automation(target_count=5):
             if e.attrib.get('resource-id', '') in (
                 'com.meesho.supply:id/item_catalog_card_optimised',
                 'com.meesho.supply:id/catalog_card_optimised',
+                'item_0', 'container_0'
             )
         ]
 
@@ -347,15 +352,24 @@ def run_automation(target_count=5):
                 continue
             time.sleep(7)  # Wait for product detail page to load
 
+            # Swipe horizontally on the image carousel to pause its auto-rotation
+            log_print("Swiping horizontally to pause carousel animations...")
+            dev.shell("input", "swipe", "800", "600", "200", "600", "500")
+            time.sleep(2)
+
             dismiss_popups(dev)
 
             # Dump product detail page
             try:
                 xml_detail = dev.dump_ui()
             except Exception as e:
-                log_print(f"Detail dump error: {e}. Backing out.")
+                log_print(f"Failed to dump product details: {e}")
+                xml_detail = ""
+                
+            if not xml_detail:
+                log_print("Empty XML returned. Skipping product.")
                 dev.shell("input", "keyevent", "4")
-                time.sleep(3)
+                time.sleep(2)
                 continue
 
             if not xml_detail:
@@ -527,4 +541,4 @@ def run_automation(target_count=5):
     log_print("="*50)
 
 if __name__ == "__main__":
-    run_automation(5)
+    run_automation(15)

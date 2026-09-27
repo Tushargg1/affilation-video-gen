@@ -6,7 +6,7 @@ if %ERRORLEVEL% equ 0 (
     echo ADB READY
     goto :run
 )
-timeout /t 2 /nobreak >nul
+ping -n 3 127.0.0.1 >nul
 goto :loop
 
 :run
