@@ -63,7 +63,7 @@ def tap_node(dev, node, offset_small=False):
     
 def get_clipboard():
     try:
-        res = sp.run(["powershell", "-command", "Get-Clipboard"], capture_output=True, text=True, check=True, timeout=5)
+        res = sp.run(["powershell", "-command", "Get-Clipboard"], capture_output=True, text=True, check=True, timeout=5, creationflags=0x08000000)
         return res.stdout.strip()
     except Exception:
         return ""
@@ -104,7 +104,7 @@ def ensure_bluestacks_running(dev):
             # Already running — bring window to front
             sp.Popen(["powershell", "-command",
                 "(New-Object -ComObject WScript.Shell).AppActivate('BlueStacks App Player')"],
-                stdout=sp.DEVNULL, stderr=sp.DEVNULL)
+                stdout=sp.DEVNULL, stderr=sp.DEVNULL, creationflags=0x08000000)
             return True
     except Exception:
         pass
@@ -122,7 +122,7 @@ def ensure_bluestacks_running(dev):
                     # Bring window to front
                     sp.Popen(["powershell", "-command",
                         "(New-Object -ComObject WScript.Shell).AppActivate('BlueStacks App Player')"],
-                        stdout=sp.DEVNULL, stderr=sp.DEVNULL)
+                        stdout=sp.DEVNULL, stderr=sp.DEVNULL, creationflags=0x08000000)
                     return True
             except Exception:
                 pass
@@ -145,7 +145,7 @@ def run_automation(target_count=10):
         return
     
     # 1. Clear clipboard to avoid stale links
-    sp.run(["powershell", "-command", "Set-Clipboard -Value 'empty'"])
+    sp.run(["powershell", "-command", "Set-Clipboard -Value 'empty'"], creationflags=0x08000000)
     
     log_print("Force restarting Meesho to ensure clean state...")
     dev.shell("am", "force-stop", "com.meesho.supply")

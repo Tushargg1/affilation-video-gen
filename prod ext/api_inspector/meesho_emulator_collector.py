@@ -155,7 +155,7 @@ class AdbClient:
         cmd += list(args)
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
-                               timeout=timeout, check=False)
+                               timeout=timeout, check=False, creationflags=0x08000000)
             if r.stderr.strip():
                 log.warning("ADB stderr for %s: %s", args[0] if args else "cmd", r.stderr.strip())
                 if "device" in r.stderr and "not found" in r.stderr and self.serial and ":" in self.serial and args and args[0] != "connect":
