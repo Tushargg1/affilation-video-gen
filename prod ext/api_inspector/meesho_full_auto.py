@@ -191,11 +191,9 @@ def run_automation(target_count=10):
         
         for elem in root.iter('node'):
             if elem.attrib.get('clickable') == 'true':
-                for child in elem.iter():
-                    val = child.attrib.get('text', '') or child.attrib.get('content-desc', '')
-                    if '₹' in val:
-                        products.append(elem)
-                        break
+                res_id = elem.attrib.get('resource-id', '')
+                if res_id == 'com.meesho.supply:id/item_catalog_card_optimised':
+                    products.append(elem)
                         
         log_print(f"\nFound {len(products)} products on screen. Processing...")
         if len(products) > 0:
@@ -256,14 +254,17 @@ def run_automation(target_count=10):
             texts = []
             for elem in root_detail.iter():
                 t = elem.attrib.get('text', '') or elem.attrib.get('content-desc', '')
-                if t: texts.append(t)
+                if not t: continue
+                texts.append(t)
+                
+                # Robust price extraction via resource-id
+                if elem.attrib.get('resource-id') == 'com.meesho.supply:id/price' and not data["price"]:
+                    m = re.search(r'(\d+)', t)
+                    if m: data["price"] = float(m.group(1))
                 
             for t in texts:
                 if len(t) > 20 and not data["title"] and "http" not in t and "@" not in t:
                     data["title"] = t.strip()
-                if "₹" in t and not data["price"]:
-                    m = re.search(r'₹\s*(\d+)', t)
-                    if m: data["price"] = float(m.group(1))
                 if "commission" in t.lower() and not data["commission_percent"]:
                     m = re.search(r'(\d+(?:\.\d+)?)\s*%', t)
                     if m: data["commission_percent"] = float(m.group(1))
