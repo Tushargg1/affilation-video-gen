@@ -156,12 +156,32 @@ def ensure_emulator_running(dev):
     log_print("Timeout waiting for Android Studio Emulator.")
     return False
 
+# Resource IDs that are part of normal Meesho UI (NOT popups) - never tap these in dismiss
+_NORMAL_UI_CLOSE_IDS = {
+    "com.meesho.supply:id/close_button",       # main home screen element
+    "com.meesho.supply:id/iv_close",           # close on search bar
+    "com.meesho.supply:id/back_button",
+    "com.meesho.supply:id/navigate_up",
+}
+
+def _is_real_popup(root):
+    """Check if there's an actual overlay/dialog on screen (not the main UI)."""
+    for e in root.iter():
+        cls = e.attrib.get("class", "")
+        if cls in ("android.app.Dialog", "android.widget.PopupWindow",
+                   "androidx.appcompat.app.AlertDialog"):
+            return True
+    # If a FrameLayout covers the full screen on top of Meesho content, it's likely a dialog
+    return False
+
 def dismiss_popups(dev):
     try:
         xml = dev.dump_ui()
         if not xml:
             return
         root = ET.fromstring(xml)
+
+        # ANR dialogs
         anr_wait = find_node(root, "wait", clickable=True)
         anr_close = find_node(root, "close app", clickable=True)
         if anr_wait:
@@ -174,18 +194,74 @@ def dismiss_popups(dev):
             tap_node(dev, anr_close)
             time.sleep(3)
             return
-        if find_node(root, "real images"):
-            log_print("Dismissing Real Images popup...")
-            dev.shell("input", "keyevent", "4")
-            time.sleep(2)
-        for kw in ["got it", "ok", "allow", "skip"]:
+
+        # Specific known popup buttons (text-based match)
+        popup_dismiss_keywords = [
+            "continue shopping",   # "7 Days Easy Returns" popup
+            "got it",
+            "allow",
+            "not now",
+            "maybe later",
+            "no thanks",
+        ]
+        for kw in popup_dismiss_keywords:
             node = find_node(root, kw, clickable=True)
             if node:
-                log_print(f"Dismissing dialog: {kw}")
+                log_print(f"Dismissing popup via button: '{kw}'")
                 tap_node(dev, node)
-                time.sleep(1)
-    except Exception:
-        pass
+                time.sleep(1.5)
+                return
+
+        # "Real images" popup
+        if find_node(root, "real images"):
+            log_print("Dismissing 'Real Images' popup...")
+            dev.shell("input", "keyevent", "4")
+            time.sleep(2)
+            return
+
+    except Exception as e:
+        log_print(f"dismiss_popups error (non-fatal): {e}")
+
+# All known resource-ids for product cards across Meesho app versions
+CARD_RIDS = {
+    "com.meesho.supply:id/item_catalog_card_optimised",
+    "com.meesho.supply:id/catalog_card_optimised",
+    "com.meesho.supply:id/catalog_recycler_view",  # parent container
+}
+
+def _find_cards_in_root(root):
+    """Find product cards using multiple possible resource-ids."""
+    cards = [e for e in root.iter("node")
+             if e.attrib.get("resource-id", "") in (
+                 "com.meesho.supply:id/item_catalog_card_optimised",
+                 "com.meesho.supply:id/catalog_card_optimised",
+             )]
+    if cards:
+        return cards
+    # Fallback: look for clickable ViewGroup children of the catalog recycler
+    recycler = None
+    for e in root.iter("node"):
+        if e.attrib.get("resource-id", "") in (
+                "com.meesho.supply:id/catalog_recycler_view",
+                "com.meesho.supply:id/recycler_wrapper",):
+            recycler = e
+            break
+    if recycler is not None:
+        children = [e for e in recycler
+                    if e.attrib.get("clickable") == "true"
+                    and e.attrib.get("class", "") in (
+                        "android.view.ViewGroup",
+                        "android.widget.FrameLayout",
+                        "android.widget.LinearLayout",)]
+        if children:
+            return children
+    # Last resort: any clickable ViewGroup that contains a price node
+    price_parents = []
+    for e in root.iter("node"):
+        if e.attrib.get("resource-id", "") == "com.meesho.supply:id/price":
+            # walk up is not possible with ElementTree, so just return all clickable ancestors
+            pass
+    return []
 
 def wait_for_results_loaded(dev, timeout=25):
     for i in range(timeout):
@@ -195,11 +271,24 @@ def wait_for_results_loaded(dev, timeout=25):
             if not xml:
                 continue
             root = ET.fromstring(xml)
+
+            # Dismiss any popups that may be blocking the search results
+            if i % 3 == 0:  # check every 3 seconds
+                dismiss_popups(dev)
+
+            # If we're not even in Meesho, skip
+            meesho_nodes = [e for e in root.iter("node")
+                            if e.attrib.get("package", "") == "com.meesho.supply"]
+            if not meesho_nodes:
+                log_print(f"Not in Meesho yet ({i+1}s)...")
+                continue
+
             has_loading = any(
                 e.attrib.get("resource-id", "") in (
                     "com.meesho.supply:id/overlay_progress_bar",
                     "com.meesho.supply:id/iv_loading")
                 for e in root.iter("node"))
+
             has_scrim = any("scrim" in e.attrib.get("resource-id", "")
                             for e in root.iter("node"))
             if has_scrim:
@@ -207,41 +296,143 @@ def wait_for_results_loaded(dev, timeout=25):
                 dev.shell("input", "tap", "450", "1400")
                 time.sleep(2)
                 continue
-            cards = [e for e in root.iter("node")
-                     if e.attrib.get("resource-id", "") == "com.meesho.supply:id/item_catalog_card_optimised"]
+
+            cards = _find_cards_in_root(root)
             if not has_loading and len(cards) > 0:
                 log_print(f"Results loaded! Found {len(cards)} product cards.")
                 return True
+
+            # Also check if catalog recycler is present
+            has_recycler = any(
+                e.attrib.get("resource-id", "") in (
+                    "com.meesho.supply:id/catalog_recycler_view",
+                    "com.meesho.supply:id/recycler_wrapper",
+                    "com.meesho.supply:id/search_recycler_view",)
+                for e in root.iter("node"))
+            if has_recycler and not has_loading:
+                log_print("Catalog recycler found, assuming results loaded.")
+                return True
+
             log_print(f"Still loading... ({i+1}s)")
         except Exception as e:
             log_print(f"Wait error: {e}")
-    log_print("Timeout waiting for results.")
-    return False
+    log_print("Timeout - proceeding anyway (results may be visible).")
+    return True  # Don't block forever
+
+
+SEARCH_BAR_RIDS = [
+    # Confirmed from actual XML dumps (current_ui.xml = home screen):
+    "com.meesho.supply:id/query_edit_text",   # EditText on home screen [148,300][839,405]
+    "com.meesho.supply:id/searchBoxHome",     # LinearLayout on home screen
+    "com.meesho.supply:id/search_box",        # LinearLayout on search results page
+    # Other possible IDs:
+    "com.meesho.supply:id/et_search",
+    "com.meesho.supply:id/search_src_text",
+]
+
+def _find_search_bar(root):
+    """Find the Meesho search bar EditText element by resource-id."""
+    # Prefer the actual EditText input field
+    for e in root.iter():
+        rid = e.attrib.get("resource-id", "")
+        cls = e.attrib.get("class", "")
+        if rid == "com.meesho.supply:id/query_edit_text" and cls == "android.widget.EditText":
+            return e
+    # Fallback: any of the known container IDs
+    for rid_target in SEARCH_BAR_RIDS:
+        for e in root.iter():
+            if e.attrib.get("resource-id", "") == rid_target:
+                return e
+    # Last fallback: any EditText with search hint
+    for e in root.iter():
+        if e.attrib.get("class", "") == "android.widget.EditText":
+            hint = (e.attrib.get("text", "") + e.attrib.get("content-desc", "")).lower()
+            if "search" in hint or "keyword" in hint or "product" in hint:
+                return e
+    return None
+
+def wait_for_home_loaded(dev, timeout=30):
+    """Wait until the Meesho home screen is fully displayed."""
+    for i in range(timeout):
+        time.sleep(1)
+        try:
+            xml = dev.dump_ui()
+            if not xml:
+                continue
+            root = ET.fromstring(xml)
+            bar = _find_search_bar(root)
+            if bar is not None:
+                bounds = bar.attrib.get("bounds", "")
+                log_print(f"Home screen ready! Search bar found: {bar.attrib.get('resource-id')} bounds={bounds}")
+                return root, bar
+        except Exception as e:
+            log_print(f"Home wait error: {e}")
+    log_print("Timeout waiting for home screen. Proceeding anyway.")
+    return None, None
 
 def do_search(dev, keyword):
     log_print(f"Searching for '{keyword}'...")
-    dev.shell("input", "tap", "450", "350")
-    time.sleep(2)
-    dev.shell("input", "keyevent", "123")
-    backspaces = ["67"] * 40
+
+    # Wait for home screen to fully load and find search bar
+    log_print("Waiting for Meesho home screen to load...")
+    root, search_bar = wait_for_home_loaded(dev, timeout=30)
+
+    if search_bar is not None:
+        rid = search_bar.attrib.get("resource-id", "")
+        log_print(f"Tapping search bar: {rid}")
+        tap_node(dev, search_bar)
+        time.sleep(1.5)
+    else:
+        # Ultimate fallback: use the confirmed bounds from XML analysis [148,300][839,405]
+        log_print("Search bar not found, tapping confirmed home-screen coords (540, 352)...")
+        dev.shell("input", "tap", "540", "352")
+        time.sleep(1.5)
+
+    # Clear any existing text
+    dev.shell("input", "keyevent", "KEYCODE_CTRL_A")
+    time.sleep(0.3)
+    dev.shell("input", "keyevent", "67")  # DEL
+    time.sleep(0.3)
+    dev.shell("input", "keyevent", "123")  # MOVE_END
+    backspaces = ["67"] * 60
     dev.shell("input", "keyevent", *backspaces)
     time.sleep(0.5)
+
+    # Also try: clear via clear_search_query button if present
+    try:
+        xml2 = dev.dump_ui()
+        if xml2:
+            root2 = ET.fromstring(xml2)
+            clear_btn = None
+            for e in root2.iter():
+                if e.attrib.get("resource-id", "") == "com.meesho.supply:id/clear_search_query":
+                    clear_btn = e
+                    break
+            if clear_btn:
+                log_print("Tapping clear_search_query...")
+                tap_node(dev, clear_btn)
+                time.sleep(0.5)
+    except Exception:
+        pass
+
+    # Type keyword
+    log_print(f"Typing '{keyword}'...")
     for i, word in enumerate(keyword.split()):
         if i > 0:
-            dev.shell("input", "keyevent", "62")
+            dev.shell("input", "keyevent", "62")  # space
         dev.shell("input", "text", word)
-        time.sleep(0.5)
-    time.sleep(2)
-    dev.shell("input", "tap", "500", "350")
-    time.sleep(3)
-    loaded = wait_for_results_loaded(dev, timeout=60)
-    if not loaded:
-        log_print("WARNING: Timeout on first load. Trying Enter key...")
-        dev.shell("input", "keyevent", "66")
-        time.sleep(4)
-        wait_for_results_loaded(dev, timeout=20)
+        time.sleep(0.4)
+    time.sleep(1.5)
+
+    # Press Enter to submit search
+    log_print("Pressing Enter to search...")
+    dev.shell("input", "keyevent", "66")
+    time.sleep(4)
+
+    wait_for_results_loaded(dev, timeout=60)
     log_print("On search results feed.")
     return True
+
 
 SKIP_RIDS = {
     "com.meesho.supply:id/price",
@@ -406,9 +597,9 @@ def run_automation(target_count=15):
         dismiss_popups(dev)
         root = ET.fromstring(xml)
 
-        cards = [e for e in root.iter("node")
-                 if e.attrib.get("resource-id", "") == "com.meesho.supply:id/item_catalog_card_optimised"]
+        cards = _find_cards_in_root(root)
         log_print(f"\nFound {len(cards)} product cards. Collected {collected}/{target_count}.")
+
 
         if cards:
             empty_count = 0

@@ -1,0 +1,109 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e5]:
+        - heading "Antigravity Auto-Poster" [level=1] [ref=e6]:
+          - generic [ref=e7]: Antigravity
+          - text: Auto-Poster
+        - paragraph [ref=e8]: Schedule once, publish everywhere automatically.
+      - generic [ref=e9]:
+        - generic [ref=e10]:
+          - heading "Local Extractor Status DISCONNECTED" [level=3] [ref=e11]:
+            - text: Local Extractor Status
+            - generic [ref=e12]: DISCONNECTED
+          - paragraph [ref=e13]: Waiting for laptop connection... Run start_dashboard.bat
+        - textbox "Waiting for sync..." [ref=e15]
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e19]:
+              - heading "Auto-Poster Schedule" [level=2] [ref=e20]
+              - button [ref=e23]
+            - generic [ref=e25]:
+              - generic [ref=e26]:
+                - generic [ref=e27]: Daily Videos Target
+                - generic [ref=e28]:
+                  - slider [ref=e29] [cursor=pointer]: "4"
+                  - generic [ref=e30]: "4"
+              - generic [ref=e31]:
+                - generic [ref=e32]: Posting Times (Local Time)
+                - generic [ref=e33]:
+                  - generic [ref=e34]:
+                    - generic [ref=e35]: "#1"
+                    - textbox [ref=e36]: 02:00
+                  - generic [ref=e37]:
+                    - generic [ref=e38]: "#2"
+                    - textbox [ref=e39]: 06:00
+                  - generic [ref=e40]:
+                    - generic [ref=e41]: "#3"
+                    - textbox [ref=e42]: 09:00
+                  - generic [ref=e43]:
+                    - generic [ref=e44]: "#4"
+                    - textbox [ref=e45]: 19:00
+                - paragraph [ref=e46]: Settings are saved to the cloud. The scheduler on your laptop will pick up the latest settings automatically.
+          - heading "Manual Override Post" [level=2] [ref=e49]
+          - generic [ref=e50]:
+            - generic [ref=e51]:
+              - generic [ref=e52]: Video File
+              - generic [ref=e53] [cursor=pointer]:
+                - paragraph [ref=e56]: Click or drag video to upload
+                - paragraph [ref=e57]: MP4 or Quicktime up to 100MB
+            - generic [ref=e58]:
+              - generic [ref=e59]:
+                - generic [ref=e60]: Caption
+                - generic [ref=e61]: AI Auto-Generate if empty
+              - textbox "Write a viral caption or leave this blank to let the AI write it for you based on the video content..." [ref=e62]
+            - generic [ref=e63]:
+              - generic [ref=e64]: Platforms to publish
+              - generic [ref=e65]:
+                - generic [ref=e66] [cursor=pointer]: youtube
+                - generic [ref=e68] [cursor=pointer]: facebook
+                - generic [ref=e70] [cursor=pointer]: instagram
+            - generic [ref=e72]:
+              - generic [ref=e73]: Publish Time (Local Time)
+              - textbox [ref=e74]
+            - button "Schedule Automation" [ref=e75]
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - heading "Automation History" [level=3] [ref=e80]
+            - button [ref=e81]
+          - paragraph [ref=e88]: No posts scheduled yet.
+      - generic [ref=e89]:
+        - generic [ref=e90]:
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - heading "System Health" [level=2] [ref=e93]
+              - button "Refresh System Health" [ref=e96]
+            - generic [ref=e99]:
+              - generic [ref=e100]: API Link
+              - generic [ref=e103]: Cloudflare
+              - generic [ref=e106]: Pixel 8 Emulator
+              - generic [ref=e110]: Scraper Bot
+          - heading "Automation Controls" [level=2] [ref=e113]
+          - generic [ref=e114]:
+            - generic [ref=e115]:
+              - generic [ref=e116]: Search Keyword
+              - textbox "e.g. kurti, smart watch..." [ref=e117]: kurti
+            - generic [ref=e118] [cursor=pointer]:
+              - checkbox "Skip 0% Commission Products" [checked] [ref=e119]
+              - generic [ref=e120]: Skip 0% Commission Products
+            - button "▶ Start Extraction" [ref=e121]
+          - generic [ref=e122]: Connect Cloudflare URL to view logs...
+        - generic [ref=e124]:
+          - generic [ref=e125]:
+            - heading "Product Database (0 Total)" [level=2] [ref=e126]
+            - button "Refresh Data" [ref=e127]
+          - generic [ref=e130]:
+            - textbox "Search products..." [ref=e131]
+            - combobox [ref=e132]:
+              - option "Newest First" [selected]
+              - 'option "Price: Low to High"'
+              - 'option "Price: High to Low"'
+              - 'option "Commission: High to Low"'
+          - generic [ref=e133]:
+            - button "All" [ref=e135]
+            - generic [ref=e136] [cursor=pointer]:
+              - checkbox "Hide Completed" [ref=e137]
+              - generic [ref=e138]: Hide Completed
+          - paragraph [ref=e141]: No products found. Enter CF URL or run extraction.
+  - alert [ref=e142]
