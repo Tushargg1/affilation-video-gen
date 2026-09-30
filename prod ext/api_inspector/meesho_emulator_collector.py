@@ -230,8 +230,39 @@ class AdbClient:
                         return m.group(1)
         return ""
 
+    def ensure_fastdump(self) -> bool:
+        try:
+            out = self.shell("ls", "/data/local/tmp/fastdump.jar")
+            if "fastdump.jar" in out:
+                return True
+            local_jar = Path(__file__).parent / "fastdump.jar"
+            if local_jar.exists():
+                self.run("push", str(local_jar), "/data/local/tmp/fastdump.jar", timeout=10)
+                return True
+        except Exception as e:
+            log.warning("ensure_fastdump error: %s", e)
+        return False
+
     def dump_ui(self, save_path: Path | None = None) -> str:
         remote = "/sdcard/window_dump.xml"
+        # 1. Try FastDump first (instant, bypasses idle state / animations / countdown timers)
+        try:
+            self.ensure_fastdump()
+            self.shell("rm", "-f", remote, timeout=5)
+            cmd = "CLASSPATH=/system/framework/uiautomator.jar:/data/local/tmp/fastdump.jar app_process /data/local/tmp FastDump " + remote
+            self.shell(cmd, timeout=8)
+            xml = self.run("exec-out", "cat", remote, timeout=10)
+            if "<?xml" in xml:
+                xml = xml[xml.index("<?xml"):]
+            if xml.strip().startswith("<?xml"):
+                if save_path:
+                    save_path.parent.mkdir(parents=True, exist_ok=True)
+                    save_path.write_text(xml, encoding="utf-8")
+                return xml
+        except Exception as e:
+            log.warning("FastDump attempt failed: %s, falling back to uiautomator dump", e)
+
+        # 2. Fallback to standard uiautomator dump
         for attempt in range(3):
             self.shell("rm", "-f", remote, timeout=10)
             try:

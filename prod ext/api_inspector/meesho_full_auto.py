@@ -222,6 +222,77 @@ def dismiss_popups(dev):
     except Exception as e:
         log_print(f"dismiss_popups error (non-fatal): {e}")
 
+# Recommendation headings that Meesho injects dynamically into search feed
+EXCLUDE_HEADINGS = [
+    "similar products",
+    "you may also like",
+    "premium quality",
+    "gold premium quality",
+    "gold",
+    "people also viewed",
+    "more like this",
+    "recommended for you",
+    "trending now",
+    "frequently viewed",
+]
+
+def parse_bounds_tuple(b_str):
+    m = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', b_str or '')
+    return tuple(map(int, m.groups())) if m else None
+
+def find_exclusion_zones(root):
+    """
+    Find vertical zones [y1, y2] on screen that contain recommendation widgets
+    or recommendation headings.
+    """
+    zones = []
+    # 1. Any velocity_widget (Meesho's container for carousels & recommendations)
+    for e in root.iter("node"):
+        rid = e.attrib.get("resource-id", "")
+        if rid == "com.meesho.supply:id/velocity_widget":
+            b = parse_bounds_tuple(e.attrib.get("bounds"))
+            if b:
+                zones.append((b[1], b[3], "velocity_widget"))
+
+    # 2. Check for recommendation headings and find their enclosing container
+    parent_map = {c: p for p in root.iter() for c in p}
+    for e in root.iter("node"):
+        t = e.attrib.get("text", "").strip().lower()
+        if any(h in t for h in EXCLUDE_HEADINGS):
+            hb = parse_bounds_tuple(e.attrib.get("bounds"))
+            if not hb:
+                continue
+            hy1, hy2 = hb[1], hb[3]
+            if any(zy1 <= hy1 and hy2 <= zy2 for zy1, zy2, _ in zones):
+                continue
+            curr = e
+            found = False
+            while curr in parent_map:
+                curr = parent_map[curr]
+                cb = parse_bounds_tuple(curr.attrib.get("bounds"))
+                if cb and cb[0] <= 60 and cb[2] >= 950 and (cb[3] - cb[1]) > 300:
+                    zones.append((cb[1], cb[3], f"heading_container: {t}"))
+                    found = True
+                    break
+            if not found:
+                zones.append((hy1, hy1 + 750, f"heading_fallback: {t}"))
+
+    # Merge overlapping zones
+    if not zones:
+        return []
+    zones.sort(key=lambda z: z[0])
+    merged = []
+    curr_y1, curr_y2, curr_lbl = zones[0]
+    for y1, y2, lbl in zones[1:]:
+        if y1 <= curr_y2:
+            curr_y2 = max(curr_y2, y2)
+            curr_lbl += f" + {lbl}"
+        else:
+            merged.append((curr_y1, curr_y2, curr_lbl))
+            curr_y1, curr_y2, curr_lbl = y1, y2, lbl
+    merged.append((curr_y1, curr_y2, curr_lbl))
+    return merged
+
 # All known resource-ids for product cards across Meesho app versions
 CARD_RIDS = {
     "com.meesho.supply:id/item_catalog_card_optimised",
@@ -229,39 +300,46 @@ CARD_RIDS = {
     "com.meesho.supply:id/catalog_recycler_view",  # parent container
 }
 
-def _find_cards_in_root(root):
-    """Find product cards using multiple possible resource-ids."""
-    cards = [e for e in root.iter("node")
-             if e.attrib.get("resource-id", "") in (
-                 "com.meesho.supply:id/item_catalog_card_optimised",
-                 "com.meesho.supply:id/catalog_card_optimised",
-             )]
-    if cards:
-        return cards
-    # Fallback: look for clickable ViewGroup children of the catalog recycler
-    recycler = None
-    for e in root.iter("node"):
-        if e.attrib.get("resource-id", "") in (
-                "com.meesho.supply:id/catalog_recycler_view",
-                "com.meesho.supply:id/recycler_wrapper",):
-            recycler = e
-            break
-    if recycler is not None:
-        children = [e for e in recycler
-                    if e.attrib.get("clickable") == "true"
-                    and e.attrib.get("class", "") in (
-                        "android.view.ViewGroup",
-                        "android.widget.FrameLayout",
-                        "android.widget.LinearLayout",)]
-        if children:
-            return children
-    # Last resort: any clickable ViewGroup that contains a price node
-    price_parents = []
-    for e in root.iter("node"):
-        if e.attrib.get("resource-id", "") == "com.meesho.supply:id/price":
-            # walk up is not possible with ElementTree, so just return all clickable ancestors
-            pass
-    return []
+def _find_cards_in_root(root, exclusion_zones=None):
+    """Find product cards using multiple possible resource-ids, strictly excluding recommendation zones."""
+    if exclusion_zones is None:
+        exclusion_zones = find_exclusion_zones(root)
+
+    raw_cards = [e for e in root.iter("node")
+                 if e.attrib.get("resource-id", "") in (
+                     "com.meesho.supply:id/item_catalog_card_optimised",
+                     "com.meesho.supply:id/catalog_card_optimised",
+                 )]
+    if not raw_cards:
+        # Fallback: look for clickable ViewGroup children of the catalog recycler
+        recycler = None
+        for e in root.iter("node"):
+            if e.attrib.get("resource-id", "") in (
+                    "com.meesho.supply:id/catalog_recycler_view",
+                    "com.meesho.supply:id/recycler_wrapper",):
+                recycler = e
+                break
+        if recycler is not None:
+            raw_cards = [e for e in recycler
+                         if e.attrib.get("clickable") == "true"
+                         and e.attrib.get("class", "") in (
+                             "android.view.ViewGroup",
+                             "android.widget.FrameLayout",
+                             "android.widget.LinearLayout",)]
+
+    filtered_cards = []
+    for c in raw_cards:
+        b = parse_bounds_tuple(c.attrib.get("bounds"))
+        if not b:
+            continue
+        cy = (b[1] + b[3]) // 2
+        # Check if card center or bounds overlap any exclusion zone
+        in_zone = any(zy1 <= cy <= zy2 or (b[1] < zy2 and b[3] > zy1) for zy1, zy2, _ in exclusion_zones)
+        if in_zone:
+            continue
+        filtered_cards.append(c)
+
+    return filtered_cards
 
 def wait_for_results_loaded(dev, timeout=25):
     for i in range(timeout):
@@ -442,7 +520,15 @@ SKIP_RIDS = {
     "com.meesho.supply:id/rating",
     "com.meesho.supply:id/affiliate_commission_text",
     "com.meesho.supply:id/returns_unbundling_text",
+    "com.meesho.supply:id/dynamicBannerTextTv",
+    "com.meesho.supply:id/special_price_txt",
 }
+
+BAD_TITLE_PATTERNS = [
+    "discount", "applied", "special offer", "repurchased", "best seller",
+    "ends in", "free delivery", "rating", "fresh drops", "similar",
+    "you may also like", "premium quality", "gold"
+]
 
 def parse_card(card_elem):
     """
@@ -462,9 +548,10 @@ def parse_card(card_elem):
         c   = elem.attrib.get("content-desc", "").strip()
         val = t or c
 
-        if rid == "com.meesho.supply:id/affiliate_commission_text":
+        if "commission" in val.lower() or rid == "com.meesho.supply:id/affiliate_commission_text":
             m = re.search(r'(\d+(?:\.\d+)?)\s*%', val)
-            data["commission_percent"] = float(m.group(1)) if m else 0.0
+            if m:
+                data["commission_percent"] = float(m.group(1))
 
         elif rid == "com.meesho.supply:id/price" and not data["price"]:
             m = re.search(r'(\d+)', val)
@@ -476,74 +563,111 @@ def parse_card(card_elem):
 
         elif (len(val) > 8 and not data["title"]
               and "http" not in val and "%" not in val and "@" not in val
-              and rid not in SKIP_RIDS):
+              and ":" not in val
+              and rid not in SKIP_RIDS
+              and not any(bp in val.lower() for bp in BAD_TITLE_PATTERNS)):
             data["title"] = val
 
     return data
 
 def get_link_via_card_share(dev, card_data):
-    """Tap share icon on the card and copy affiliate link from share sheet."""
-    share_bounds = card_data.get("share_bounds", "")
-    if not share_bounds:
-        m = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', card_data["bounds"])
-        if m:
-            x1, y1, x2, y2 = map(int, m.groups())
-            share_x = x2 - 25
-            share_y = y1 + 40
+    """
+    Get affiliate link by opening the product page (PDP) and tapping the Share button.
+    """
+    opened_pdp = False
+
+    # Tap the product card center to open Product Details Page (PDP)
+    cx, cy = get_center(card_data.get("bounds", ""))
+    if cx <= 0 or cy <= 0:
+        log_print("Invalid card bounds for opening product.")
+        return ""
+    log_print(f"Opening product page at ({cx}, {cy})...")
+    tap_xy(dev, cx, cy)
+    time.sleep(3)
+    opened_pdp = True
+
+    # On PDP, find the Share button and full title
+    try:
+        xml_pdp = dev.dump_ui()
+        if xml_pdp:
+            root_pdp = ET.fromstring(xml_pdp)
+            # Extract exact title from PDP
+            title_node = find_node(root_pdp, resource_id="com.meesho.supply:id/product_name_text_with_brand")
+            if title_node is None:
+                for e in root_pdp.iter("node"):
+                    rid = e.attrib.get("resource-id", "")
+                    if "product_name" in rid.lower() or "product_title" in rid.lower():
+                        title_node = e
+                        break
+            if title_node is not None and title_node.attrib.get("text"):
+                card_data["title"] = title_node.attrib.get("text").strip()
+            elif not card_data.get("title") or any(bp in card_data.get("title","").lower() for bp in BAD_TITLE_PATTERNS):
+                excluded_pdp_words = [
+                    "commission", "off", "order", "return", "offer", "discount",
+                    "ends in", "similar", "h :", "m :", "s :", "gold", "quality",
+                    "select", "size", "stitch", "fresh drops", "special price",
+                    "free delivery", "rating", "buy at", "wishlist", "share"
+                ]
+                for e in root_pdp.iter("node"):
+                    t = e.attrib.get("text", "").strip()
+                    rid = e.attrib.get("resource-id", "")
+                    if len(t) > 10 and not any(k in t.lower() for k in excluded_pdp_words):
+                        if "name" in rid.lower() or "title" in rid.lower() or e.attrib.get("class") == "android.widget.TextView":
+                            card_data["title"] = t
+                            break
+
+            # Find Share button on PDP
+            share_node = find_node(root_pdp, resource_id="com.meesho.supply:id/share_others")
+            if share_node is None:
+                share_node = find_node(root_pdp, exact_text="Share", clickable=True)
+            
+            if share_node is not None:
+                # Tap top-right area of share button to avoid floating voice assistant mic
+                sb = share_node.attrib.get("bounds", "")
+                m_sb = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', sb)
+                if m_sb:
+                    sx1, sy1, sx2, sy2 = map(int, m_sb.groups())
+                    tap_xy(dev, sx2 - 30, sy1 + 25)
+                else:
+                    tap_node(dev, share_node)
+            else:
+                tap_xy(dev, 1020, 1960)
         else:
-            log_print("No share bounds and no card bounds. Skipping.")
-            return ""
-    else:
-        share_x, share_y = get_center(share_bounds)
+            tap_xy(dev, 1020, 1960)
+    except Exception as e:
+        log_print(f"PDP share dump error: {e}")
+        tap_xy(dev, 1020, 1960)
 
-    if share_x <= 0:
-        log_print("Could not calculate share icon coordinates.")
-        return ""
+    time.sleep(2.5)
 
-    m_card = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', card_data["bounds"])
-    if m_card and int(m_card.group(2)) < 200:
-        log_print(f"Card too high (y={m_card.group(2)}), share icon covered. Skipping.")
-        return ""
-
-    log_print(f"Tapping share icon at ({share_x}, {share_y})...")
+    # Share sheet is open - find and tap "Copy to clipboard"
     set_clipboard("empty")
-    tap_xy(dev, share_x, share_y)
-    time.sleep(4)
-
     try:
         xml_share = dev.dump_ui()
+        if xml_share:
+            root_share = ET.fromstring(xml_share)
+            copy_node = find_node(root_share, resource_id="com.meesho.supply:id/share_channel_copy_to_clipboard")
+            if not copy_node:
+                for kw in ["copy to clipboard", "copy link", "copy"]:
+                    copy_node = find_node(root_share, kw, clickable=True)
+                    if copy_node:
+                        break
+            if copy_node is not None:
+                log_print("Tapping Copy to clipboard...")
+                tap_node(dev, copy_node)
+                time.sleep(2.5)
+            else:
+                tap_xy(dev, 930, 1828)
+                time.sleep(2.5)
     except Exception as e:
-        log_print(f"Failed to dump share sheet: {e}")
-        dev.shell("input", "keyevent", "4")
-        time.sleep(2)
-        return ""
-
-    if not xml_share:
-        log_print("Empty share sheet XML.")
-        dev.shell("input", "keyevent", "4")
-        time.sleep(2)
-        return ""
-
-    root_share = ET.fromstring(xml_share)
-    copy_node = None
-    for kw in ["copy to clipboard", "copy link", "copy"]:
-        copy_node = find_node(root_share, kw, clickable=True)
-        if copy_node:
-            break
-
-    if copy_node is None:
-        log_print("Copy to clipboard not found in share sheet. Closing.")
-        dev.shell("input", "keyevent", "4")
-        time.sleep(2)
-        return ""
-
-    log_print("Tapping Copy to clipboard...")
-    tap_node(dev, copy_node)
-    time.sleep(3)
+        log_print(f"Share sheet error: {e}")
+        tap_xy(dev, 930, 1828)
+        time.sleep(2.5)
 
     clip = get_clipboard()
     log_print(f"Clipboard: {clip[:120]}")
 
+    link = ""
     for pattern in [
         r'(https://www\.meesho\.com/s/p/[a-zA-Z0-9_-]+)',
         r'(https://meesho\.com[^\s]+)',
@@ -551,10 +675,26 @@ def get_link_via_card_share(dev, card_data):
     ]:
         m_link = re.search(pattern, clip)
         if m_link:
-            return m_link.group(1)
+            link = m_link.group(1)
+            break
 
-    log_print("No Meesho link found in clipboard.")
-    return ""
+    if not link:
+        log_print("No Meesho link found in clipboard.")
+
+    # If we opened PDP, press BACK to return to search feed!
+    if opened_pdp:
+        log_print("Returning to search results feed...")
+        dev.shell("input", "keyevent", "4")
+        time.sleep(1.5)
+        try:
+            curr_xml = dev.dump_ui()
+            if curr_xml and "item_catalog_card_optimised" not in curr_xml:
+                dev.shell("input", "keyevent", "4")
+                time.sleep(1.5)
+        except Exception:
+            pass
+
+    return link
 
 def run_automation(target_count=15):
     keyword   = sys.argv[1] if len(sys.argv) > 1 else "mens lowers"
@@ -580,6 +720,19 @@ def run_automation(target_count=15):
 
     collected, empty_count, scroll_count = 0, 0, 0
     processed_urls = set()
+    visited_keys_on_screen = set()
+
+    # Pre-populate processed_urls from database to avoid re-scraping existing items
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT product_url FROM auto_products WHERE product_url IS NOT NULL")
+            for row in cur.fetchall():
+                if row[0]:
+                    processed_urls.add(row[0])
+        log_print(f"Loaded {len(processed_urls)} existing product URLs from DB for de-duplication.")
+    except Exception as e:
+        log_print(f"Error loading existing URLs: {e}")
 
     while collected < target_count:
         try:
@@ -597,17 +750,43 @@ def run_automation(target_count=15):
         dismiss_popups(dev)
         root = ET.fromstring(xml)
 
-        cards = _find_cards_in_root(root)
-        log_print(f"\nFound {len(cards)} product cards. Collected {collected}/{target_count}.")
+        # Detect recommendation exclusion zones (velocity_widget, headings like Similar Products, You may also like, etc.)
+        zones = find_exclusion_zones(root)
+        if zones:
+            log_print(f"Active exclusion zones: {[z[2] for z in zones]}")
 
+        cards = _find_cards_in_root(root, exclusion_zones=zones)
+        log_print(f"\nFound {len(cards)} search cards outside recommendation zones. Collected {collected}/{target_count}.")
 
-        if cards:
-            empty_count = 0
-        else:
+        # Find candidate cards that are fully visible and not visited on this scroll position
+        valid_candidates = []
+        for c in cards:
+            b = parse_bounds_tuple(c.attrib.get("bounds"))
+            if not b:
+                continue
+            x1, y1, x2, y2 = b
+            # Safe viewport check: top search/filters end ~320, bottom mic/nav starts ~2150
+            if y1 < 320 or y2 > 2150 or (y2 - y1) < 350:
+                continue
+
+            card = parse_card(c)
+            # Spatial/content key for current scroll viewport
+            card_key = f"{round(card['price'], 1)}_{round(card['commission_percent'], 1)}_{x1 // 100}_{y1 // 100}"
+            if card_key in visited_keys_on_screen:
+                continue
+
+            valid_candidates.append((c, card, b, card_key))
+
+        if not valid_candidates:
             empty_count += 1
-            log_print(f"No product cards (attempt {empty_count}).")
-            if empty_count >= 5:
-                log_print("Stuck! Force-restarting Meesho and re-searching...")
+            log_print(f"No unvisited search cards in current view (attempt {empty_count}). Scrolling down...")
+            dev.shell("input", "swipe", "540", "1500", "540", "550", "450")
+            scroll_count += 1
+            visited_keys_on_screen.clear()
+            time.sleep(3.5)
+
+            if empty_count >= 6 or scroll_count > 30:
+                log_print("Stuck or too many scrolls! Re-searching for fresh feed...")
                 dev.shell("am", "force-stop", "com.meesho.supply")
                 time.sleep(2)
                 dev.shell("monkey", "-p", "com.meesho.supply", "-c", "android.intent.category.LAUNCHER", "1")
@@ -615,92 +794,71 @@ def run_automation(target_count=15):
                 do_search(dev, keyword)
                 empty_count = 0
                 scroll_count = 0
-            elif empty_count >= 3:
-                log_print("Trying small swipe to break animation...")
-                dev.shell("input", "swipe", "450", "900", "450", "800", "300")
-                time.sleep(3)
-            else:
-                time.sleep(5)
             continue
 
-        for idx, card_elem in enumerate(cards):
-            if collected >= target_count:
-                break
+        empty_count = 0
 
-            card = parse_card(card_elem)
-            comm = card["commission_percent"]
-            comm_str = f"{comm}%" if comm >= 0 else "not shown"
-            log_print(f"\nCard {idx+1}/{len(cards)} | Price: Rs{card['price']} | Commission: {comm_str} | Title: {card['title'][:40]}")
+        # Process the topmost unvisited candidate card
+        cand_elem, card, b, card_key = valid_candidates[0]
+        visited_keys_on_screen.add(card_key)
 
-            # Skip 0% commission immediately without opening product
-            if comm == 0.0:
-                log_print("0% Commission -> SKIPPING (no product page open).")
-                continue
-            if comm < 0 and skip_zero:
-                log_print("Commission not shown on card, skip_zero=True -> SKIPPING.")
-                continue
+        comm = card["commission_percent"]
+        comm_str = f"{comm}%" if comm >= 0 else "not shown"
+        log_print(f"\nTargeting Search Card | Price: Rs{card['price']} | Commission: {comm_str} | Title: {card['title'][:40]}")
 
-            # Get affiliate link via share icon on card (no product page needed)
-            link = get_link_via_card_share(dev, card)
-            time.sleep(2)
+        # Skip 0% commission immediately without opening product
+        if comm == 0.0:
+            log_print("0% Commission -> SKIPPING (no product page open).")
+            continue
+        if comm < 0 and skip_zero:
+            log_print("Commission not shown on card, skip_zero=True -> SKIPPING.")
+            continue
 
-            # Verify still on search results
-            try:
-                chk_xml = dev.dump_ui()
-                if chk_xml:
-                    chk_root = ET.fromstring(chk_xml)
-                    chk_cards = [e for e in chk_root.iter("node")
-                                 if e.attrib.get("resource-id", "") == "com.meesho.supply:id/item_catalog_card_optimised"]
-                    if not chk_cards:
-                        log_print("Navigated away from results! Pressing Back...")
-                        dev.shell("input", "keyevent", "4")
-                        time.sleep(3)
-                        wait_for_results_loaded(dev, timeout=15)
-            except Exception:
-                pass
+        # Open PDP, get share link, and return to feed
+        link = get_link_via_card_share(dev, card)
+        time.sleep(1.5)
 
-            if not link or not link.startswith("http"):
-                log_print("No affiliate link obtained - skipping.")
-                continue
+        # Verify still on search results
+        try:
+            chk_xml = dev.dump_ui()
+            if chk_xml:
+                chk_root = ET.fromstring(chk_xml)
+                chk_cards = _find_cards_in_root(chk_root)
+                if not chk_cards:
+                    log_print("Navigated away from results! Pressing Back...")
+                    dev.shell("input", "keyevent", "4")
+                    time.sleep(3)
+                    wait_for_results_loaded(dev, timeout=15)
+        except Exception:
+            pass
 
-            if link in processed_urls:
-                log_print("Already processed this URL, skipping.")
-                continue
-            processed_urls.add(link)
+        if not link or not link.startswith("http"):
+            log_print("No affiliate link obtained - skipping.")
+            continue
 
-            title = card["title"] or f"Product @ Rs{card['price']}"
+        if link in processed_urls:
+            log_print(f"URL already processed ({link}), skipping.")
+            continue
+        processed_urls.add(link)
 
-            try:
-                with sqlite3.connect(DB_PATH) as conn:
-                    cur = conn.execute(
-                        "INSERT OR IGNORE INTO auto_products "
-                        "(title, price, commission_percent, product_url, category) "
-                        "VALUES (?, ?, ?, ?, ?)",
-                        (title, card["price"], max(comm, 0.0), link, keyword)
-                    )
-                    conn.commit()
-                    if cur.rowcount > 0:
-                        collected += 1
-                        log_print(f"SAVED #{collected}: {title[:50]} | {comm}% | {link}")
-                    else:
-                        log_print("Already in DB (duplicate URL).")
-            except Exception as e:
-                log_print(f"DB error: {e}")
+        title = card["title"] or f"Product @ Rs{card['price']}"
 
-        if collected < target_count:
-            log_print("Scrolling to load more products...")
-            dev.shell("input", "swipe", "450", "1400", "450", "400", "600")
-            scroll_count += 1
-            time.sleep(5)
-
-            if scroll_count > 25:
-                log_print("Too many scrolls - re-searching for fresh feed...")
-                dev.shell("am", "force-stop", "com.meesho.supply")
-                time.sleep(2)
-                dev.shell("monkey", "-p", "com.meesho.supply", "-c", "android.intent.category.LAUNCHER", "1")
-                time.sleep(8)
-                do_search(dev, keyword)
-                scroll_count = 0
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                cur = conn.execute(
+                    "INSERT OR IGNORE INTO auto_products "
+                    "(title, price, commission_percent, product_url, category) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (title, card["price"], max(comm, 0.0), link, keyword)
+                )
+                conn.commit()
+                if cur.rowcount > 0:
+                    collected += 1
+                    log_print(f"SAVED #{collected}: {title[:50]} | {comm}% | {link}")
+                else:
+                    log_print("Already in DB (duplicate URL).")
+        except Exception as e:
+            log_print(f"DB error: {e}")
 
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
     log_print(f"\n{'='*60}")
