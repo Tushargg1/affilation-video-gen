@@ -216,6 +216,20 @@ export default function Home() {
       setTimeout(() => { pendingRef.current = false; }, 3000); // 3 second grace period
     }
   };
+
+  const startChromeExtraction = async () => {
+    if (!cfUrl || isPending) return alert('Enter Cloudflare URL first or wait for action to complete');
+    setIsPending(true);
+    try {
+      const baseUrl = cfUrl.endsWith('/') ? cfUrl.slice(0, -1) : cfUrl;
+      await fetch(`${baseUrl}/api/start-chrome`, { method: 'POST' });
+      alert('Chrome extraction started in the background!');
+    } catch (e: any) {
+      alert('Failed to start Chrome extraction');
+    } finally {
+      setIsPending(false);
+    }
+  };
   
   const launchBlueStacks = async () => {
     if (!cfUrl || isLaunchingBS) return;
@@ -532,109 +546,33 @@ export default function Home() {
               </div>
             </div>
 
-            <h2 className="text-xl font-bold mb-6 text-slate-400 flex items-center gap-2">
-              Manual Override Post
+            <h2 className="text-xl font-bold mb-6 text-slate-700 flex items-center gap-2">
+              Prompt Generation Templates
             </h2>
             
-            <form onSubmit={handleSubmit} className="space-y-6">
-              
-              {/* Drag and Drop Zone */}
+            <div className={`space-y-6 transition-opacity ${!schedulerConfig.scheduler_enabled ? 'opacity-50 pointer-events-none' : ''}`}>
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Video File</label>
-                {!videoPreviewUrl ? (
-                  <div 
-                    onDragOver={onDragOver}
-                    onDragLeave={onDragLeave}
-                    onDrop={onDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`relative border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all ${
-                      isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 hover:border-slate-400 bg-slate-50 hover:bg-slate-100'
-                    }`}
-                  >
-                    <svg className="w-10 h-10 text-slate-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    <p className="text-sm font-medium text-slate-600">Click or drag video to upload</p>
-                    <p className="text-xs text-slate-400 mt-1">MP4 or Quicktime up to 100MB</p>
-                  </div>
-                ) : (
-                  <div className="relative rounded-2xl overflow-hidden bg-black group">
-                    <video src={videoPreviewUrl} controls className="w-full h-48 object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
-                    <button 
-                      type="button" 
-                      onClick={() => { setFile(null); setVideoPreviewUrl(null); }}
-                      className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-2 hover:bg-red-500 transition-colors backdrop-blur-md"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                  </div>
-                )}
-                <input type="file" accept="video/mp4,video/quicktime" className="hidden" ref={fileInputRef} onChange={(e) => e.target.files && handleFile(e.target.files[0])} />
-              </div>
-
-              {/* Caption */}
-              <div>
-                <div className="flex justify-between items-end mb-2">
-                  <label className="block text-sm font-semibold text-slate-700">Caption</label>
-                  <span className="text-xs font-medium text-indigo-500 bg-indigo-50 px-2 py-1 rounded-full">AI Auto-Generate if empty</span>
-                </div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Base Image Prompt (Sent to Gemini 3.8 Flash)</label>
                 <textarea 
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  value={schedulerConfig.base_image_prompt || ''}
+                  onChange={(e) => updateSchedulerConfig({ ...schedulerConfig, base_image_prompt: e.target.value })}
                   rows={4}
-                  placeholder="Write a viral caption or leave this blank to let the AI write it for you based on the video content..."
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-shadow resize-none"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 text-sm transition-shadow resize-none"
+                  placeholder="E.g., Generate an aesthetic image for..."
                 />
               </div>
 
-              {/* Platforms */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">Platforms to publish</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {(['youtube', 'facebook', 'instagram'] as const).map(platform => (
-                    <label key={platform} className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${platforms[platform] ? 'border-indigo-600 bg-indigo-50/50' : 'border-slate-100 hover:border-slate-200 bg-white'}`}>
-                      <input type="checkbox" checked={platforms[platform]} onChange={() => handlePlatformChange(platform)} className="hidden" />
-                      <span className={`text-sm font-semibold capitalize ${platforms[platform] ? 'text-indigo-700' : 'text-slate-600'}`}>{platform}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Time */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Publish Time (Local Time)</label>
-                <input 
-                  type="datetime-local" 
-                  required
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-shadow"
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Base Video Prompt (Sent to Gemini 3.8 Flash)</label>
+                <textarea 
+                  value={schedulerConfig.base_video_prompt || ''}
+                  onChange={(e) => updateSchedulerConfig({ ...schedulerConfig, base_video_prompt: e.target.value })}
+                  rows={4}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 text-sm transition-shadow resize-none"
+                  placeholder="E.g., Generate a 5s video panning across..."
                 />
               </div>
-
-              {status.message && (
-                <div className={`p-4 rounded-xl text-sm font-medium ${
-                  status.type === 'error' ? 'bg-red-50 text-red-800 border border-red-100' : 
-                  status.type === 'success' ? 'bg-green-50 text-green-800 border border-green-100' : 
-                  'bg-blue-50 text-blue-800 border border-blue-100'
-                }`}>
-                  {status.message}
-                </div>
-              )}
-
-              <button 
-                type="submit" 
-                disabled={isLoading}
-                className="w-full py-4 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all font-bold shadow-lg shadow-indigo-200 flex justify-center items-center gap-2"
-              >
-                {isLoading ? (
-                  <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                )}
-                {isLoading ? 'Processing...' : 'Schedule Automation'}
-              </button>
-            </form>
+            </div>
           </div>
 
           {/* History Column */}
@@ -783,9 +721,14 @@ export default function Home() {
                 <span className="text-sm font-semibold text-slate-700">Skip 0% Commission Products</span>
               </label>
               {!isRunning ? (
-                <button type="submit" disabled={isPending} className={`w-full py-4 px-4 bg-gradient-to-r ${isPending ? 'from-emerald-400 to-emerald-400 cursor-not-allowed' : 'from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700'} text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all`}>
-                  {isPending ? '⏳ Processing...' : '▶ Start Extraction'}
-                </button>
+                <div className="space-y-3">
+                  <button type="submit" disabled={isPending} className={`w-full py-4 px-4 bg-gradient-to-r ${isPending ? 'from-emerald-400 to-emerald-400 cursor-not-allowed' : 'from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700'} text-white rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all`}>
+                    {isPending ? '⏳ Processing...' : '▶ Start Extraction'}
+                  </button>
+                  <button type="button" onClick={startChromeExtraction} disabled={isPending} className={`w-full py-3 px-4 bg-gradient-to-r ${isPending ? 'from-indigo-400 to-indigo-400 cursor-not-allowed' : 'from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700'} text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all`}>
+                    {isPending ? '⏳ Processing...' : '🌐 Start Chrome Extraction'}
+                  </button>
+                </div>
               ) : (
                 <button type="button" disabled={isPending} onClick={stopAutomation} className={`w-full py-4 px-4 bg-gradient-to-r ${isPending ? 'from-red-400 to-red-400 cursor-not-allowed' : 'from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'} text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all`}>
                   {isPending ? '⏳ Processing...' : '⏹ Stop Automation'}
