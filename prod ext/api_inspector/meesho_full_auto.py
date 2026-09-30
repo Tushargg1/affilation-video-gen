@@ -696,7 +696,7 @@ def get_link_via_card_share(dev, card_data):
 
     return link
 
-def run_automation(target_count=15):
+def run_automation(target_count=9999999):
     keyword   = sys.argv[1] if len(sys.argv) > 1 else "mens lowers"
     skip_zero = (len(sys.argv) > 2 and sys.argv[2] == "skip_zero")
     init_log(keyword, skip_zero)
@@ -867,4 +867,4 @@ def run_automation(target_count=15):
     log_print("=" * 60)
 
 if __name__ == "__main__":
-    run_automation(15)
+    run_automation(9999999)
