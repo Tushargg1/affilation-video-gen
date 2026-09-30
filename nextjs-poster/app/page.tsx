@@ -61,11 +61,9 @@ export default function Home() {
     }
   };
 
-  const fetchMeeshoData = async (url: string) => {
-    if (!url) return;
+  const fetchMeeshoData = async (url?: string) => {
     try {
-      const baseUrl = url.endsWith('/') ? url.slice(0, -1) : url;
-      const res = await fetch(`${baseUrl}/api/products`);
+      const res = await fetch('/api/db/products');
       if (res.ok) {
         setIsConnected(true);
         const data = await res.json();
@@ -74,32 +72,35 @@ export default function Home() {
         setIsConnected(false);
       }
       
-      const logRes = await fetch(`${baseUrl}/api/logs`);
-      if (logRes.ok) {
-        const logData = await logRes.json();
-        setLogs(logData.logs || '');
-        if (logData.metrics) setLogMetrics(logData.metrics);
-      }
-      
-      const sessionRes = await fetch(`${baseUrl}/api/extraction-history`);
+      const sessionRes = await fetch('/api/db/extraction-history');
       if (sessionRes.ok) {
         const sessionData = await sessionRes.json();
         if (sessionData.sessions) setExtractionHistory(sessionData.sessions);
       }
 
-      // Check running status so it persists on refresh
-      const statusRes = await fetch(`${baseUrl}/api/status`);
-      if (statusRes.ok) {
-        const statusData = await statusRes.json();
-        if (!pendingRef.current) {
-          setIsRunning(statusData.isRunning);
-          if (statusData.isBlueStacksRunning !== undefined) {
-            setIsBlueStacksRunning(statusData.isBlueStacksRunning);
-          }
-          // Auto-clear stop timer if it stopped
-          if (timerAction === 'stop' && !statusData.isRunning) {
-            setActionStartTime(null);
-            setTimerAction(null);
+      if (url) {
+        const baseUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+        const logRes = await fetch(`${baseUrl}/api/logs`);
+        if (logRes.ok) {
+          const logData = await logRes.json();
+          setLogs(logData.logs || '');
+          if (logData.metrics) setLogMetrics(logData.metrics);
+        }
+        
+        // Check running status so it persists on refresh
+        const statusRes = await fetch(`${baseUrl}/api/status`);
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          if (!pendingRef.current) {
+            setIsRunning(statusData.isRunning);
+            if (statusData.isBlueStacksRunning !== undefined) {
+              setIsBlueStacksRunning(statusData.isBlueStacksRunning);
+            }
+            // Auto-clear stop timer if it stopped
+            if (timerAction === 'stop' && !statusData.isRunning) {
+              setActionStartTime(null);
+              setTimerAction(null);
+            }
           }
         }
       }
@@ -144,9 +145,8 @@ export default function Home() {
     };
   }, []);
 
-  // Poll Local Laptop via Cloudflare Tunnel very frequently (LIVE updates)
+  // Poll Database (and Local Laptop via Cloudflare if available) very frequently (LIVE updates)
   useEffect(() => {
-    if (!cfUrl) return;
     const localInterval = setInterval(() => {
       fetchMeeshoData(cfUrl);
     }, 2000);
