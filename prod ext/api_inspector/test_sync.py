@@ -1,10 +1,8 @@
 import sqlite3
 import psycopg2
-import time
-import traceback
 import sys
 
-SUPABASE_URL = "postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x"
+SUPABASE_URL = "postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require"
 LOCAL_DB = "data/meesho_products.db"
 
 def sync():
@@ -18,18 +16,14 @@ def sync():
             conn_local.row_factory = sqlite3.Row
             cur_local = conn_local.cursor()
             
-            # Sync extraction_sessions
-            cur_local.execute("SELECT * FROM extraction_sessions")
-            for row in cur_local.fetchall():
-                cur_supa.execute("""
-                    INSERT INTO extraction_sessions (id, start_time, keyword, total_extracted)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (id) DO UPDATE SET total_extracted = EXCLUDED.total_extracted
-                """, (row['id'], row['start_time'], row['keyword'], row['total_extracted']))
+            # Sync extraction_sessions (skipped because table might not exist locally)
+
 
             # Sync auto_products
             cur_local.execute("SELECT * FROM auto_products")
-            for row in cur_local.fetchall():
+            products = cur_local.fetchall()
+            print(f"Found {len(products)} products in local DB.")
+            for row in products:
                 cur_supa.execute("""
                     INSERT INTO auto_products 
                     (id, title, price, commission_percent, product_url, created_at, category, video_created, 
@@ -52,9 +46,12 @@ def sync():
                       row['created_at'], row['category'], row['video_created'], row['review_star'], 
                       row['total_bought'], row['image_url'], row['image_prompt'], row['video_prompt'], 
                       row['downloaded_image_path'], row['downloaded_video_path'], row['status']))
+            print("Sync complete.")
                 
     except Exception as e:
-        print("Sync Error:", e)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
     finally:
         if conn_supa:
             try:
@@ -63,7 +60,4 @@ def sync():
                 pass
 
 if __name__ == "__main__":
-    print("Starting continuous sync to Supabase...")
-    while True:
-        sync()
-        time.sleep(5)
+    sync()

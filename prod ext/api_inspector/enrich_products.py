@@ -1,4 +1,4 @@
-import sqlite3
+import psycopg2
 import time
 import os
 import re
@@ -57,7 +57,7 @@ def run_enrichment_loop():
         
         while True:
             try:
-                conn = sqlite3.connect(DB_PATH)
+                conn = psycopg2.connect("postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require")
                 cur = conn.cursor()
                 # Find up to 10 products that haven't been enriched yet
                 cur.execute("SELECT id, product_url FROM auto_products WHERE image_url IS NULL AND product_url IS NOT NULL LIMIT 10")
@@ -74,30 +74,30 @@ def run_enrichment_loop():
                     if data and data['image_url']:
                         print(f" -> Found Image: {data['image_url']} | Rating: {data['rating']}")
                         
-                        updates = ["image_url = ?"]
+                        updates = ["image_url = %s"]
                         params = [data['image_url']]
                         
                         if data['rating']:
-                            updates.append("review_star = ?")
+                            updates.append("review_star = %s")
                             params.append(data['rating'])
                             
                         if data['reviews']:
-                            updates.append("total_bought = ?")
+                            updates.append("total_bought = %s")
                             params.append(data['reviews'])
                             
                         if data['price']:
-                            updates.append("price = ?")
+                            updates.append("price = %s")
                             params.append(data['price'])
                             
                         params.append(row_id)
                         
-                        query = f"UPDATE auto_products SET {', '.join(updates)} WHERE id = ?"
+                        query = f"UPDATE auto_products SET {', '.join(updates)} WHERE id = %s"
                         cur.execute(query, tuple(params))
                         conn.commit()
                     else:
                         print(" -> Failed to extract key details. Will retry later or skip.")
                         # Mark it as failed so we don't infinitely loop on it immediately
-                        cur.execute("UPDATE auto_products SET image_url = 'FAILED' WHERE id = ?", (row_id,))
+                        cur.execute("UPDATE auto_products SET image_url = 'FAILED' WHERE id = %s", (row_id,))
                         conn.commit()
                         
                 conn.close()

@@ -15,9 +15,6 @@ echo.
 echo Starting Product Enrichment Daemon...
 start "Product Enrichment (Do not close)" cmd /c "python ..\enrich_products.py"
 
-echo.
-echo Starting Supabase Database Sync...
-start "Supabase Sync (Do not close)" cmd /c "python ..\supabase_sync.py"
 
 echo.
 echo Starting Cloudflare Tunnel and opening Vercel App...

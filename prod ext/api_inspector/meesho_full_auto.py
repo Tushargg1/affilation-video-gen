@@ -14,7 +14,7 @@ New strategy (MUCH faster - no product-page opens needed):
   5. Tap the share_shop icon ON the card -> Copy to clipboard -> get affiliate link.
   6. Save to DB. Scroll. Repeat.
 """
-import sys, time, sqlite3, re, subprocess as sp, datetime
+import sys, time, psycopg2, re, subprocess as sp, datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from meesho_emulator_collector import AdbClient
@@ -23,7 +23,7 @@ DB_PATH = Path("data/meesho_products.db")
 
 def setup_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(DB_PATH) as conn:
+    with psycopg2.connect("postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require") as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS auto_products (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -734,17 +734,17 @@ def run_automation(target_count=9999999):
     
     global session_id
     try:
-        with sqlite3.connect(DB_PATH) as conn:
+        with psycopg2.connect("postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require") as conn:
             cur = conn.cursor()
-            cur.execute("INSERT INTO extraction_sessions (keyword) VALUES (?)", (keyword,))
-            session_id = cur.lastrowid
+            cur.execute("INSERT INTO extraction_sessions (keyword) VALUES (%s) RETURNING id", (keyword,))
+            session_id = cur.fetchone()[0]
             conn.commit()
     except Exception as e:
         log_print(f"Error creating session: {e}")
 
     # Pre-populate processed_urls from database to avoid re-scraping existing items
     try:
-        with sqlite3.connect(DB_PATH) as conn:
+        with psycopg2.connect("postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require") as conn:
             cur = conn.cursor()
             cur.execute("SELECT product_url FROM auto_products WHERE product_url IS NOT NULL")
             for row in cur.fetchall():
@@ -864,11 +864,11 @@ def run_automation(target_count=9999999):
         title = card["title"] or f"Product @ Rs{card['price']}"
 
         try:
-            with sqlite3.connect(DB_PATH) as conn:
+            with psycopg2.connect("postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require") as conn:
                 cur = conn.execute(
-                    "INSERT OR IGNORE INTO auto_products "
+                    "INSERT INTO auto_products "
                     "(title, price, commission_percent, product_url, category) "
-                    "VALUES (?, ?, ?, ?, ?)",
+                    "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (product_url) DO NOTHING",
                     (title, card["price"], max(comm, 0.0), link, keyword)
                 )
                 conn.commit()
@@ -876,7 +876,7 @@ def run_automation(target_count=9999999):
                     collected += 1
                     log_print(f"SAVED #{collected}: {title[:50]} | {comm}% | {link}")
                     if session_id:
-                        conn.execute("UPDATE extraction_sessions SET total_extracted = ? WHERE id = ?", (collected, session_id))
+                        cur.execute("UPDATE extraction_sessions SET total_extracted = %s WHERE id = %s", (collected, session_id))
                         conn.commit()
                 else:
                     log_print("Already in DB (duplicate URL).")
