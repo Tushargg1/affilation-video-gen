@@ -10,8 +10,7 @@ async function generatePrompts() {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // Actually using gemini-1.5-flash as 3.5-flash is invalid in SDK
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", generationConfig: { responseMimeType: "application/json" }});
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig: { responseMimeType: "application/json" }});
 
     console.log(`Connecting to Supabase...`);
     const db = new Client({
