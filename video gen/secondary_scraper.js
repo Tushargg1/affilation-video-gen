@@ -11,7 +11,7 @@ async function scrapeProductData() {
     await db.connect();
 
     try {
-        const res = await db.query("SELECT id, product_url FROM auto_products WHERE status = 'extracted' OR image_url IS NULL");
+        const res = await db.query("SELECT id, product_url FROM auto_products WHERE title IS NULL OR status IS NULL");
         const rows = res.rows;
 
         if (rows.length === 0) {
@@ -59,7 +59,22 @@ async function scrapeProductData() {
                         totalBought = product.rating?.ratingCount?.toString() || product.reviews?.toString() || '';
                         console.log('Extracted via __NEXT_DATA__');
                     }
-                } 
+                }
+
+                // Extract title and price via DOM (always run — not in __NEXT_DATA__ reliably)
+                let title = await page.evaluate(() => {
+                    const el = document.querySelector('h1, [class*="product-name"], [class*="ProductName"], [class*="title"]');
+                    return el ? el.textContent.trim() : '';
+                });
+
+                let price = await page.evaluate(() => {
+                    const el = Array.from(document.querySelectorAll('span, p')).find(el => el.textContent.match(/^₹\s*\d+/));
+                    return el ? el.textContent.replace(/[^0-9.]/g, '').trim() : '';
+                });
+
+                console.log(`=> Title: ${title}`);
+                console.log(`=> Price: ${price}`);
+
                 
                 if (!imageUrl) {
                     // Fallback DOM extraction
@@ -89,10 +104,10 @@ async function scrapeProductData() {
                 console.log(`=> Review Star: ${reviewStar}`);
                 console.log(`=> Total Bought: ${totalBought}`);
 
-                // Update DB
+                // Update DB with all enriched data
                 await db.query(
-                    "UPDATE auto_products SET review_star = $1, total_bought = $2, image_url = $3, status = 'scraped' WHERE id = $4",
-                    [reviewStar, totalBought, imageUrl, id]
+                    "UPDATE auto_products SET title = $1, price = $2, review_star = $3, total_bought = $4, image_url = $5, status = 'scraped' WHERE id = $6",
+                    [title || null, price ? parseFloat(price) : null, reviewStar, totalBought, imageUrl, id]
                 );
                 
             } catch (e) {

@@ -867,9 +867,9 @@ def run_automation(target_count=9999999):
             with psycopg2.connect("postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require") as conn:
                 cur = conn.execute(
                     "INSERT INTO auto_products "
-                    "(title, price, commission_percent, product_url, category) "
-                    "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (product_url) DO NOTHING",
-                    (title, card["price"], max(comm, 0.0), link, keyword)
+                    "(commission_percent, product_url) "
+                    "VALUES (%s, %s) ON CONFLICT (product_url) DO NOTHING",
+                    (max(comm, 0.0), link)
                 )
                 conn.commit()
                 if cur.rowcount > 0:
