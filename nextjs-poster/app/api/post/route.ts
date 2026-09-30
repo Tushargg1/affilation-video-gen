@@ -25,24 +25,37 @@ async function handler(request: Request) {
     const videoArrayBuffer = await videoResponse.arrayBuffer();
     const videoBuffer = Buffer.from(videoArrayBuffer);
     
-    // 1. AI Caption Generation
-    if (!description || description.trim() === '') {
-      if (process.env.GEMINI_API_KEY) {
-        console.log('Generating AI caption...');
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-        
-        const prompt = "Watch this video and write an engaging, viral social media caption with 3-5 trending hashtags. Do not include quotes.";
-        
-        const result = await model.generateContent([
-          prompt,
-          { inlineData: { data: videoBuffer.toString("base64"), mimeType: "video/mp4" } }
-        ]);
-        description = result.response.text().trim();
-      } else {
-        description = "Check out this new video! 🔥 #viral";
-      }
+    // Fetch config and product data for platform-specific captions
+    const { createClient } = require('@supabase/supabase-js');
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    
+    let config: any = {};
+    if (process.env.UPSTASH_REDIS_REST_URL) {
+      const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN! });
+      config = await redis.get('app:scheduler_config') || {};
     }
+
+    let title = "Amazing Product";
+    let url = "";
+
+    try {
+      const productId = blobName.split('_')[1];
+      if (productId) {
+        const { data } = await supabase.from('auto_products').select('title, product_url').eq('id', productId).single();
+        if (data) {
+          title = data.title;
+          url = data.product_url;
+        }
+      }
+    } catch(e) {
+      console.error("Failed to fetch product data from Supabase:", e);
+    }
+
+    const replaceVars = (str: string) => (str || '').replace(/{title}/g, title).replace(/{url}/g, url);
+
+    const ytCaption = replaceVars(config.youtube_caption || "Check this out! {url} #shorts");
+    const fbCaption = replaceVars(config.facebook_caption || "Hot new product! {url}");
+    const igCaption = replaceVars(config.instagram_caption || "Link in bio to shop this {title}!");
 
     const postLinks: any = {};
 
@@ -59,7 +72,7 @@ async function handler(request: Request) {
 
         const ytRes = await youtube.videos.insert({
           part: ['snippet', 'status'],
-          requestBody: { snippet: { title: `Short - ${blobName}`, description, categoryId: '22' }, status: { privacyStatus: 'public', selfDeclaredMadeForKids: false } },
+          requestBody: { snippet: { title: `Short - ${blobName}`, description: ytCaption, categoryId: '22' }, status: { privacyStatus: 'public', selfDeclaredMadeForKids: false } },
           media: { body: stream },
         });
         
@@ -73,7 +86,7 @@ async function handler(request: Request) {
         console.log('Uploading to Facebook...');
         const fbUrl = `https://graph.facebook.com/v20.0/${process.env.FACEBOOK_PAGE_ID}/videos`;
         const formData = new FormData();
-        formData.append('description', description);
+        formData.append('description', fbCaption);
         formData.append('access_token', process.env.META_ACCESS_TOKEN);
         formData.append('source', new Blob([videoBuffer], { type: 'video/mp4' }), blobName);
         const fbRes = await fetch(fbUrl, { method: 'POST', body: formData });
@@ -88,7 +101,7 @@ async function handler(request: Request) {
     let isIgDelayed = false;
     if (platforms.includes('instagram') && process.env.INSTAGRAM_ACCOUNT_ID && process.env.META_ACCESS_TOKEN) {
        console.log('Creating Instagram Container...');
-       const igUrl = `https://graph.facebook.com/v20.0/${process.env.INSTAGRAM_ACCOUNT_ID}/media?media_type=REELS&video_url=${encodeURIComponent(videoUrl)}&caption=${encodeURIComponent(description)}&access_token=${process.env.META_ACCESS_TOKEN}`;
+       const igUrl = `https://graph.facebook.com/v20.0/${process.env.INSTAGRAM_ACCOUNT_ID}/media?media_type=REELS&video_url=${encodeURIComponent(videoUrl)}&caption=${encodeURIComponent(igCaption)}&access_token=${process.env.META_ACCESS_TOKEN}`;
        const igRes = await fetch(igUrl, { method: 'POST' });
        const igData = await igRes.json();
        

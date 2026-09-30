@@ -8,7 +8,10 @@ const defaultConfig = {
   daily_target: 4,
   schedule_times: ['02:00', '06:00', '09:00', '19:00'],
   base_image_prompt: 'A highly detailed description for an AI image generator (like Midjourney/Stable Diffusion/Digen) to generate a realistic photo of a model wearing/using this product. Focus on aesthetic presentation and high quality.',
-  base_video_prompt: 'A script and visual prompt for a short 5-10 second AI video showcasing this product\'s best features for affiliate marketing. Include text overlays if needed.'
+  base_video_prompt: 'A script and visual prompt for a short 5-10 second AI video showcasing this product\'s best features for affiliate marketing. Include text overlays if needed.',
+  youtube_caption: 'Check out this amazing {title}! 🚀\n\nGet it here: {url}\n\n#trending #shorts',
+  facebook_caption: '🔥 Hot New Product Alert! 🔥\n\n{title} is now available.\n\nGrab yours today: {url}',
+  instagram_caption: 'Obsessed with this {title}! 😍\n\nLink in bio to shop!\n\n#fashion #trending #musthave'
 };
 
 const corsHeaders = {
