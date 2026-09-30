@@ -10,7 +10,7 @@ async function generatePrompts() {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig: { responseMimeType: "application/json" }});
+    const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash", generationConfig: { responseMimeType: "application/json" }});
 
     console.log(`Connecting to Supabase...`);
     const db = new Client({
