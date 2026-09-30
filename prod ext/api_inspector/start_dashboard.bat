@@ -12,6 +12,10 @@ echo Waiting 5 seconds for the server to initialize...
 timeout /t 5 /nobreak >nul
 
 echo.
+echo Starting Product Enrichment Daemon...
+start "Product Enrichment (Do not close)" cmd /c "python ..\enrich_products.py"
+
+echo.
 echo Starting Cloudflare Tunnel and opening Vercel App...
 echo ===================================================
 echo Keep this window open! It links Vercel to your PC.
