@@ -810,7 +810,7 @@ export default function Home() {
             <div className={`mt-8 ${actionStartTime ? 'mt-4' : ''}`}>
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-sm font-bold text-slate-700">Automation Live Logs</h3>
-                {logMetrics.deviceBoots > 0 && (
+                {(logMetrics.deviceBoots > 0 || logMetrics.appRestarts > 0) && (
                   <div className="flex gap-2 text-xs font-medium">
                     <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">Device Boots: {logMetrics.deviceBoots}</span>
                     <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded">App Restarts: {logMetrics.appRestarts}</span>
