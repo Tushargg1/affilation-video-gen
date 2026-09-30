@@ -12,6 +12,7 @@ export default function Home() {
   const [status, setStatus] = useState({ type: '', message: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
+  const [extractionHistory, setExtractionHistory] = useState<any[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   
   // Meesho Automation States
@@ -78,6 +79,12 @@ export default function Home() {
         const logData = await logRes.json();
         setLogs(logData.logs || '');
         if (logData.metrics) setLogMetrics(logData.metrics);
+      }
+      
+      const sessionRes = await fetch(`${baseUrl}/api/extraction-history`);
+      if (sessionRes.ok) {
+        const sessionData = await sessionRes.json();
+        if (sessionData.sessions) setExtractionHistory(sessionData.sessions);
       }
 
       // Check running status so it persists on refresh
@@ -633,7 +640,7 @@ export default function Home() {
           {/* History Column */}
           <div className="lg:col-span-7 bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col">
              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-slate-900">Automation History</h3>
+                <h3 className="text-2xl font-bold text-slate-900">Social Media History</h3>
                 <button onClick={fetchHistory} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 </button>
@@ -827,6 +834,39 @@ export default function Home() {
               {logs.length === 0 && <div className="opacity-50">Connect Cloudflare URL to view logs...</div>}
               </div>
             </div>
+            
+            <div className="mt-8">
+              <h3 className="text-sm font-bold text-slate-700 mb-2">Past Extraction Runs</h3>
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <table className="w-full text-left text-sm text-slate-600">
+                  <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+                    <tr>
+                      <th className="px-4 py-3">ID</th>
+                      <th className="px-4 py-3">Time</th>
+                      <th className="px-4 py-3">Keyword</th>
+                      <th className="px-4 py-3 text-right">Extracted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extractionHistory.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-4 text-center text-slate-400">No past runs found</td>
+                      </tr>
+                    ) : (
+                      extractionHistory.map(session => (
+                        <tr key={session.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 font-medium text-slate-800">#{session.id}</td>
+                          <td className="px-4 py-3">{new Date(session.start_time).toLocaleString()}</td>
+                          <td className="px-4 py-3 font-mono text-indigo-600">{session.keyword}</td>
+                          <td className="px-4 py-3 text-right font-bold text-green-600">{session.total_extracted}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
           </div>
 
           <div className="lg:col-span-7 bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col">

@@ -36,7 +36,17 @@ def setup_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS extraction_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                keyword TEXT,
+                total_extracted INTEGER DEFAULT 0
+            )
+        """)
         conn.commit()
+
+session_id = None
 
 def init_log(keyword, skip_zero):
     try:
@@ -721,6 +731,16 @@ def run_automation(target_count=9999999):
     collected, empty_count, scroll_count = 0, 0, 0
     processed_urls = set()
     visited_keys_on_screen = set()
+    
+    global session_id
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cur = conn.cursor()
+            cur.execute("INSERT INTO extraction_sessions (keyword) VALUES (?)", (keyword,))
+            session_id = cur.lastrowid
+            conn.commit()
+    except Exception as e:
+        log_print(f"Error creating session: {e}")
 
     # Pre-populate processed_urls from database to avoid re-scraping existing items
     try:
@@ -855,6 +875,9 @@ def run_automation(target_count=9999999):
                 if cur.rowcount > 0:
                     collected += 1
                     log_print(f"SAVED #{collected}: {title[:50]} | {comm}% | {link}")
+                    if session_id:
+                        conn.execute("UPDATE extraction_sessions SET total_extracted = ? WHERE id = ?", (collected, session_id))
+                        conn.commit()
                 else:
                     log_print("Already in DB (duplicate URL).")
         except Exception as e:
