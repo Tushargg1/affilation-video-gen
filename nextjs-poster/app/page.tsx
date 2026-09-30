@@ -18,6 +18,7 @@ export default function Home() {
   const [cfUrl, setCfUrl] = useState('');
   const [products, setProducts] = useState<any[]>([]);
   const [logs, setLogs] = useState<string>('');
+  const [logMetrics, setLogMetrics] = useState({ appRestarts: 0, deviceBoots: 0, issues: [] as string[] });
   const [isRunning, setIsRunning] = useState(false);
   const [isBlueStacksRunning, setIsBlueStacksRunning] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -76,6 +77,7 @@ export default function Home() {
       if (logRes.ok) {
         const logData = await logRes.json();
         setLogs(logData.logs || '');
+        if (logData.metrics) setLogMetrics(logData.metrics);
       }
 
       // Check running status so it persists on refresh
@@ -805,11 +807,25 @@ export default function Home() {
               </div>
             )}
 
-            <div className={`bg-slate-900 rounded-xl p-4 h-48 overflow-y-auto font-mono text-xs text-green-400 custom-scrollbar ${actionStartTime ? 'mt-4' : 'mt-8'}`} ref={logRef}>
-              {logs.split('\n').map((line, i) => (
+            <div className={`mt-8 ${actionStartTime ? 'mt-4' : ''}`}>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-bold text-slate-700">Automation Live Logs</h3>
+                {logMetrics.deviceBoots > 0 && (
+                  <div className="flex gap-2 text-xs font-medium">
+                    <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">Device Boots: {logMetrics.deviceBoots}</span>
+                    <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded">App Restarts: {logMetrics.appRestarts}</span>
+                    {logMetrics.issues.length > 0 && (
+                      <span className="bg-red-100 text-red-700 px-2 py-1 rounded">Issues: {logMetrics.issues.join(', ')}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className={`bg-slate-900 rounded-xl p-4 h-48 overflow-y-auto font-mono text-xs text-green-400 custom-scrollbar`} ref={logRef}>
+                {logs.split('\n').map((line, i) => (
                 <div key={i}>{line}</div>
               ))}
               {logs.length === 0 && <div className="opacity-50">Connect Cloudflare URL to view logs...</div>}
+              </div>
             </div>
           </div>
 
