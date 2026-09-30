@@ -34,6 +34,12 @@ async function generatePrompts() {
         const baseImagePrompt = config?.base_image_prompt || 'A highly detailed description for an AI image generator (like Midjourney/Stable Diffusion/Digen) to generate a realistic photo of a model wearing/using this product.';
         const baseVideoPrompt = config?.base_video_prompt || 'A script and visual prompt for a short 5-10 second AI video showcasing this product\'s best features for affiliate marketing. Include text overlays if needed.';
 
+        if (config && config.prompt_generation_enabled === false) {
+            console.log("Prompt Generation is disabled in Cloud config. Exiting...");
+            await db.end();
+            return;
+        }
+
         if (rows.length === 0) {
             console.log("No products need prompts.");
             await db.end();

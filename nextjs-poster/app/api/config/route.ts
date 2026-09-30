@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 
 const defaultConfig = {
   scheduler_enabled: true,
+  prompt_generation_enabled: true,
   daily_target: 4,
   schedule_times: ['02:00', '06:00', '09:00', '19:00'],
   base_image_prompt: 'A highly detailed description for an AI image generator (like Midjourney/Stable Diffusion/Digen) to generate a realistic photo of a model wearing/using this product. Focus on aesthetic presentation and high quality.',
