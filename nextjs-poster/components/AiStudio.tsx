@@ -110,7 +110,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       return setStatus({ type: 'error', message: 'Please select a product that has an image.' });
     }
     setIsLoading(true);
-    setStatus({ type: 'info', message: 'Generating Image & Video prompts via Gemini 1.5 Flash...' });
+    setStatus({ type: 'info', message: 'Generating Image & Video prompts via Gemini 3.8 Flash...' });
     
     try {
       // Generate Image Prompt
