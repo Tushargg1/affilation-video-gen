@@ -1,11 +1,36 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { upload } from '@vercel/blob/client';
 
 export default function AiStudio({ products, schedulerConfig }: { products: any[], schedulerConfig: any }) {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
+  
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedCat = localStorage.getItem('ai_studio_category');
+    const savedProdId = localStorage.getItem('ai_studio_product_id');
+    if (savedCat) setSelectedCategory(savedCat);
+    if (savedProdId) {
+      const id = parseInt(savedProdId);
+      setSelectedProductId(id);
+      
+      // Auto-load product data if it exists in DB
+      const p = products.find(prod => prod.id === id);
+      if (p) {
+        setImagePrompt(p.image_prompt || '');
+        setVideoPrompt(p.video_prompt || '');
+        setModelPhotoUrl(p.model_photo_url || '');
+      }
+    }
+  }, [products]);
+
+  // Save to localStorage when changed
+  useEffect(() => {
+    localStorage.setItem('ai_studio_category', selectedCategory);
+    localStorage.setItem('ai_studio_product_id', selectedProductId.toString());
+  }, [selectedCategory, selectedProductId]);
   
   const [modelPhoto, setModelPhoto] = useState<File | null>(null);
   const [modelPhotoUrl, setModelPhotoUrl] = useState<string>('');
