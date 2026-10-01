@@ -11,7 +11,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       onBeforeGenerateToken: async (pathname) => {
         // You could add a password check here reading from headers if you want to secure the upload
         return {
-          allowedContentTypes: ['video/mp4', 'video/quicktime', 'video/x-m4v'],
+          allowedContentTypes: ['video/mp4', 'video/quicktime', 'video/x-m4v', 'image/jpeg', 'image/png', 'image/webp'],
           maximumSizeInBytes: 100 * 1024 * 1024, // 100MB
         };
       },
