@@ -133,7 +133,16 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
             <select 
               className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               value={selectedCategory}
-              onChange={e => { setSelectedCategory(e.target.value); setSelectedProductId(''); }}
+              onChange={e => {
+                const cat = e.target.value;
+                setSelectedCategory(cat);
+                const firstProduct = products.find(p => (p.category || 'Uncategorized') === cat);
+                if (firstProduct) {
+                  handleProductSelect(firstProduct.id);
+                } else {
+                  setSelectedProductId('');
+                }
+              }}
             >
               <option value="">-- Select Category --</option>
               {categories.map(c => <option key={c as string} value={c as string}>{c as string}</option>)}
