@@ -145,15 +145,25 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       return setStatus({ type: 'error', message: 'Please select a product that has an image.' });
     }
     setIsLoading(true);
-    setStatus({ type: 'info', message: 'Generating Image & Video prompts via Gemini 3.8 Flash...' });
-    
     try {
-      // Generate BOTH Image and Video Prompts in a single request to save API limits
-      const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `You are an expert AI prompt engineer. Analyze BOTH the attached product image and the attached model photo (if provided) and write TWO highly detailed prompts.
+      const modelsToTry = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'];
+      let data = null;
+      
+      for (let i = 0; i < modelsToTry.length; i++) {
+        const currentModel = modelsToTry[i];
+        
+        if (i > 0) {
+          setStatus({ type: 'warning', message: `Model ${modelsToTry[i-1].replace('gemini-', '')} failed... Trying ${currentModel.replace('gemini-', '')} next...` });
+        } else {
+          setStatus({ type: 'info', message: `Generating Image & Video prompts via ${currentModel.replace('gemini-', '')}...` });
+        }
+
+        // Generate BOTH Image and Video Prompts in a single request to save API limits
+        const res = await fetch('/api/gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `You are an expert AI prompt engineer. Analyze BOTH the attached product image and the attached model photo (if provided) and write TWO highly detailed prompts.
 
 1. IMAGE PROMPT: ${schedulerConfig.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting). Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography.`}
 
@@ -164,13 +174,24 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
   "imagePrompt": "your image prompt here",
   "videoPrompt": "your video prompt here"
 }`,
-          imageUrl: selectedProduct.image_url,
-          modelImageUrl: modelPhotoUrl,
-          model: 'gemini-3.8-flash'
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+            imageUrl: selectedProduct.image_url,
+            modelImageUrl: modelPhotoUrl,
+            model: currentModel
+          })
+        });
+        
+        const resData = await res.json();
+        
+        if (res.ok) {
+          data = resData;
+          break; // Success! Exit the loop.
+        }
+        
+        // If this is the last model in the array, throw the final error
+        if (i === modelsToTry.length - 1) {
+          throw new Error(resData.error || 'All fallback models failed.');
+        }
+      }
       
       setUsedModel(data.usedModel || 'gemini-3.8-flash');
 
@@ -227,12 +248,25 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
         
         if (!imgPrompt || !vidPrompt) {
           log('Generating prompts via Gemini (Single Request)...');
-          // Generate BOTH Image and Video Prompts in a single request
-          const res = await fetch('/api/gemini', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              prompt: `You are an expert AI prompt engineer. Analyze BOTH the attached product image and the attached model photo (if provided) and write TWO highly detailed prompts.
+          
+          const modelsToTry = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'];
+          let data = null;
+          
+          for (let i = 0; i < modelsToTry.length; i++) {
+            const currentModel = modelsToTry[i];
+            
+            if (i > 0) {
+              log(`Model ${modelsToTry[i-1].replace('gemini-', '')} failed... Trying ${currentModel.replace('gemini-', '')} next...`);
+            } else {
+              log(`Trying ${currentModel.replace('gemini-', '')}...`);
+            }
+
+            // Generate BOTH Image and Video Prompts in a single request
+            const res = await fetch('/api/gemini', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                prompt: `You are an expert AI prompt engineer. Analyze BOTH the attached product image and the attached model photo (if provided) and write TWO highly detailed prompts.
 
 1. IMAGE PROMPT: ${schedulerConfig.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting). Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography.`}
 
@@ -243,13 +277,22 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
   "imagePrompt": "your image prompt here",
   "videoPrompt": "your video prompt here"
 }`,
-              imageUrl: prod.image_url,
-              modelImageUrl: prod.model_photo_url || localStorage.getItem('global_model_photo'),
-              model: 'gemini-3.8-flash'
-            })
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error);
+                imageUrl: prod.image_url,
+                modelImageUrl: prod.model_photo_url || localStorage.getItem('global_model_photo'),
+                model: currentModel
+              })
+            });
+            
+            const resData = await res.json();
+            if (res.ok) {
+              data = resData;
+              break;
+            }
+            
+            if (i === modelsToTry.length - 1) {
+              throw new Error(resData.error || 'All fallback models failed.');
+            }
+          }
           
           try {
             const parsed = JSON.parse(data.text);

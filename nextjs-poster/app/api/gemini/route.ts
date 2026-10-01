@@ -43,26 +43,15 @@ export async function POST(req: Request) {
       }
     }
 
-    const fallbackModels = [model, 'gemini-3.7-flash', 'gemini-3.6-flash'];
-    // Deduplicate the models just in case the requested model is already 3.7 or 3.6
-    const modelsToTry = Array.from(new Set(fallbackModels));
-
-    let lastError: any = null;
-
-    for (const currentModel of modelsToTry) {
-      try {
-        const generativeModel = genAI.getGenerativeModel({ model: currentModel });
-        const result = await generativeModel.generateContent(parts);
-        const responseText = result.response.text();
-        return NextResponse.json({ success: true, text: responseText, usedModel: currentModel });
-      } catch (err: any) {
-        console.warn(`Model ${currentModel} failed: ${err.message}. Trying next fallback...`);
-        lastError = err;
-        // If it's a 503, continue to the next model. If it's another error, maybe also continue.
-      }
+    try {
+      const generativeModel = genAI.getGenerativeModel({ model: model });
+      const result = await generativeModel.generateContent(parts);
+      const responseText = result.response.text();
+      return NextResponse.json({ success: true, text: responseText, usedModel: model });
+    } catch (err: any) {
+      console.warn(`Model ${model} failed: ${err.message}. Sending error to frontend.`);
+      return NextResponse.json({ error: err.message || 'Model execution failed.' }, { status: 503 });
     }
-
-    throw lastError || new Error('All fallback models failed.');
 
   } catch (error: any) {
     console.error('Gemini API Error:', error);
