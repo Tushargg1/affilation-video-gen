@@ -151,7 +151,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `You are an expert AI prompt engineer. Analyze the attached product image and write TWO highly detailed prompts.
+          prompt: `You are an expert AI prompt engineer. Analyze BOTH the attached product image and the attached model photo (if provided) and write TWO highly detailed prompts.
 
 1. IMAGE PROMPT: ${schedulerConfig.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting). Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography.`}
 
@@ -163,6 +163,7 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
   "videoPrompt": "your video prompt here"
 }`,
           imageUrl: selectedProduct.image_url,
+          modelImageUrl: modelPhotoUrl,
           model: 'gemini-3.8-flash'
         })
       });
@@ -226,7 +227,7 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              prompt: `You are an expert AI prompt engineer. Analyze the attached product image and write TWO highly detailed prompts.
+              prompt: `You are an expert AI prompt engineer. Analyze BOTH the attached product image and the attached model photo (if provided) and write TWO highly detailed prompts.
 
 1. IMAGE PROMPT: ${schedulerConfig.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting). Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography.`}
 
@@ -238,6 +239,7 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
   "videoPrompt": "your video prompt here"
 }`,
               imageUrl: prod.image_url,
+              modelImageUrl: prod.model_photo_url || localStorage.getItem('global_model_photo'),
               model: 'gemini-3.8-flash'
             })
           });

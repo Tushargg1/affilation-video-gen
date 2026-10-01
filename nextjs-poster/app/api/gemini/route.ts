@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    const { prompt, imageUrl, model = 'gemini-3.8-flash' } = await req.json();
+    const { prompt, imageUrl, modelImageUrl, model = 'gemini-3.8-flash' } = await req.json();
 
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
@@ -13,23 +13,34 @@ export async function POST(req: Request) {
     
     const parts: any[] = [{ text: prompt }];
 
-    // If an image URL is provided, fetch it and convert to base64
+    // 1. Fetch and attach Product Image
     if (imageUrl) {
       const response = await fetch(imageUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.statusText}`);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        parts.push({
+          inlineData: {
+            data: buffer.toString('base64'),
+            mimeType: response.headers.get('content-type') || 'image/jpeg',
+          },
+        });
       }
-      
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const mimeType = response.headers.get('content-type') || 'image/jpeg';
-      
-      parts.push({
-        inlineData: {
-          data: buffer.toString('base64'),
-          mimeType,
-        },
-      });
+    }
+
+    // 2. Fetch and attach Model Photo (if provided)
+    if (modelImageUrl) {
+      const response = await fetch(modelImageUrl);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        parts.push({
+          inlineData: {
+            data: buffer.toString('base64'),
+            mimeType: response.headers.get('content-type') || 'image/jpeg',
+          },
+        });
+      }
     }
 
     const fallbackModels = [model, 'gemini-3.7-flash', 'gemini-3.6-flash'];
