@@ -267,8 +267,7 @@ export default function Home() {
     const newStatus = currentStatus ? 0 : 1;
     setProducts(products.map(p => p.id === id ? { ...p, video_created: newStatus } : p));
     try {
-      const baseUrl = cfUrl.endsWith('/') ? cfUrl.slice(0, -1) : cfUrl;
-      await fetch(`${baseUrl}/api/products/update`, {
+      await fetch(`/api/db/products/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, video_created: newStatus === 1 })
@@ -299,8 +298,7 @@ export default function Home() {
     setProducts(products.filter(p => !selectedProducts.has(p.id)));
     setSelectedProducts(new Set());
     try {
-      const baseUrl = cfUrl.endsWith('/') ? cfUrl.slice(0, -1) : cfUrl;
-      await fetch(`${baseUrl}/api/products/delete`, {
+      await fetch(`/api/db/products/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids })
@@ -326,8 +324,7 @@ export default function Home() {
     if (selectedCategory === category) setSelectedCategory('All');
 
     try {
-      const baseUrl = cfUrl.endsWith('/') ? cfUrl.slice(0, -1) : cfUrl;
-      await fetch(`${baseUrl}/api/products/delete`, {
+      await fetch(`/api/db/products/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids })
