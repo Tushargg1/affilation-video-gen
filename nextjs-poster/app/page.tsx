@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, DragEvent } from 'react';
 import { upload } from '@vercel/blob/client';
+import AiStudio from '../components/AiStudio';
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
@@ -542,6 +543,8 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            <AiStudio products={products} schedulerConfig={schedulerConfig} />
 
             <div className="flex items-center justify-between mb-6 mt-10">
               <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2">
