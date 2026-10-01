@@ -41,7 +41,9 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     try {
       const newBlob = await upload(modelPhoto.name, modelPhoto, {
         access: 'public',
-        handleUploadUrl: '/api/upload'
+        handleUploadUrl: '/api/upload',
+        addRandomSuffix: true,
+        allowOverwrite: true
       });
       setModelPhotoUrl(newBlob.url);
       
@@ -337,7 +339,9 @@ Return ONLY the final prompt text, with no introductory text or markdown formatt
           
           const newVideoBlob = await upload(vFile.name, vFile, {
             access: 'public',
-            handleUploadUrl: '/api/upload'
+            handleUploadUrl: '/api/upload',
+            addRandomSuffix: true,
+            allowOverwrite: true
           });
 
           log('Saving Video URL to Database...');
