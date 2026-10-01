@@ -18,11 +18,17 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       
       // Auto-load product data if it exists in DB
       const p = products.find(prod => prod.id === id);
+      const globalPhoto = localStorage.getItem('global_model_photo');
       if (p) {
         setImagePrompt(p.image_prompt || '');
         setVideoPrompt(p.video_prompt || '');
-        setModelPhotoUrl(p.model_photo_url || '');
+        setModelPhotoUrl(p.model_photo_url || globalPhoto || '');
+      } else if (globalPhoto) {
+        setModelPhotoUrl(globalPhoto);
       }
+    } else {
+      const globalPhoto = localStorage.getItem('global_model_photo');
+      if (globalPhoto) setModelPhotoUrl(globalPhoto);
     }
   }, [products]);
 
@@ -52,10 +58,11 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   const handleProductSelect = (id: number) => {
     setSelectedProductId(id);
     const p = products.find(prod => prod.id === id);
+    const globalPhoto = localStorage.getItem('global_model_photo');
     if (p) {
       setImagePrompt(p.image_prompt || '');
       setVideoPrompt(p.video_prompt || '');
-      setModelPhotoUrl(p.model_photo_url || '');
+      setModelPhotoUrl(p.model_photo_url || globalPhoto || '');
     }
   };
 
@@ -69,6 +76,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
         handleUploadUrl: '/api/upload'
       });
       setModelPhotoUrl(newBlob.url);
+      localStorage.setItem('global_model_photo', newBlob.url);
       
       if (selectedProductId) {
         await fetch('/api/db/products/update-prompt', {
