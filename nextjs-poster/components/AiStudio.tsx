@@ -333,7 +333,7 @@ Return ONLY the final prompt text, with no introductory text or markdown formatt
           
           // Determine extension from MIME type
           const ext = vBlob.type.includes('image') ? 'jpg' : 'mp4';
-          const vFile = new File([vBlob], \`product-\${prod.id}-media.\${ext}\`, { type: vBlob.type });
+          const vFile = new File([vBlob], `product-${prod.id}-media.${ext}`, { type: vBlob.type });
           
           const newVideoBlob = await upload(vFile.name, vFile, {
             access: 'public',
@@ -347,15 +347,15 @@ Return ONLY the final prompt text, with no introductory text or markdown formatt
             body: JSON.stringify({ id: prod.id, video_url: newVideoBlob.url })
           });
           
-          log(\`🎉 Finished Product: \${prod.title}!\`);
+          log(`🎉 Finished Product: ${prod.title}!`);
         } catch(e: any) {
-          log(\`❌ Failed to upload final media: \${e.message}\`);
+          log(`❌ Failed to upload final media: ${e.message}`);
         }
       }
       
       log('\n✅ Daily Automation Complete! All products processed.');
     } catch (e: any) {
-      log(\`❌ Automation Error: \${e.message}\`);
+      log(`❌ Automation Error: ${e.message}`);
     }
     setIsAutomating(false);
   };
