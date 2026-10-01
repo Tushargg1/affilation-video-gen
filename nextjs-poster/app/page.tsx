@@ -973,6 +973,7 @@ export default function Home() {
                         <img 
                           src={p.image_url} 
                           alt={p.title}
+                          referrerPolicy="no-referrer"
                           className="w-16 h-16 object-cover rounded-lg border border-slate-200 flex-shrink-0 mr-4"
                         />
                       ) : (
