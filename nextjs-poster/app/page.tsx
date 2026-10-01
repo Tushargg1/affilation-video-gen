@@ -967,6 +967,20 @@ export default function Home() {
                         onChange={() => toggleSelect(p.id)}
                         className="w-4 h-4 text-indigo-600 cursor-pointer mr-3 flex-shrink-0"
                       />
+                      
+                      {/* Product Thumbnail */}
+                      {p.image_url && p.image_url !== 'FAILED' ? (
+                        <img 
+                          src={p.image_url} 
+                          alt={p.title}
+                          className="w-16 h-16 object-cover rounded-lg border border-slate-200 flex-shrink-0 mr-4"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-2xl text-slate-300 flex-shrink-0 mr-4">
+                          🖼️
+                        </div>
+                      )}
+
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-slate-800 truncate" title={p.title}>{p.title}</div>
                         <div className="text-sm text-slate-500 mt-1 flex gap-4">
