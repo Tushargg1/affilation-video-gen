@@ -146,14 +146,15 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     }
     setIsLoading(true);
     try {
-      const modelsToTry = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'];
+      const modelsToTry = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
       let data = null;
       
       for (let i = 0; i < modelsToTry.length; i++) {
         const currentModel = modelsToTry[i];
         
         if (i > 0) {
-          setStatus({ type: 'warning', message: `Model ${modelsToTry[i-1].replace('gemini-', '')} failed... Trying ${currentModel.replace('gemini-', '')} next...` });
+          setStatus({ type: 'warning', message: `Model ${modelsToTry[i-1].replace('gemini-', '')} failed... Waiting 2s, then trying ${currentModel.replace('gemini-', '')} next...` });
+          await new Promise(r => setTimeout(r, 2000)); // Delay to avoid instant rate limiting
         } else {
           setStatus({ type: 'info', message: `Generating Image & Video prompts via ${currentModel.replace('gemini-', '')}...` });
         }
@@ -249,14 +250,15 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
         if (!imgPrompt || !vidPrompt) {
           log('Generating prompts via Gemini (Single Request)...');
           
-          const modelsToTry = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'];
+          const modelsToTry = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
           let data = null;
           
           for (let i = 0; i < modelsToTry.length; i++) {
             const currentModel = modelsToTry[i];
             
             if (i > 0) {
-              log(`Model ${modelsToTry[i-1].replace('gemini-', '')} failed... Trying ${currentModel.replace('gemini-', '')} next...`);
+              log(`Model ${modelsToTry[i-1].replace('gemini-', '')} failed... Waiting 2s, then trying ${currentModel.replace('gemini-', '')}...`);
+              await new Promise(r => setTimeout(r, 2000));
             } else {
               log(`Trying ${currentModel.replace('gemini-', '')}...`);
             }
