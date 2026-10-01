@@ -3,25 +3,37 @@ import path from 'path';
 import fs from 'fs';
 import { spawn } from 'child_process';
 
-export async function POST(request: Request) {
-  try {
-    const logPath = path.join(process.cwd(), '../data/automation.log');
-    if (!fs.existsSync(path.dirname(logPath))) {
-      fs.mkdirSync(path.dirname(logPath), { recursive: true });
-    }
-    fs.appendFileSync(logPath, '[Auto-Start] Starting Chrome extraction (secondary_scraper.js)...\n');
+let enrichmentProcess: ReturnType<typeof spawn> | null = null;
 
-    const scriptPath = path.join(process.cwd(), '../../../../video gen');
-    const child = spawn('node', ['secondary_scraper.js'], {
-      cwd: scriptPath,
+export async function GET() {
+  return NextResponse.json({ running: enrichmentProcess !== null && enrichmentProcess.exitCode === null });
+}
+
+export async function POST() {
+  try {
+    // Don't start a second instance if already running
+    if (enrichmentProcess && enrichmentProcess.exitCode === null) {
+      return NextResponse.json({ message: 'Enrichment already running!' });
+    }
+
+    const logPath = path.join(process.cwd(), '../data/automation.log');
+    const logDir = path.dirname(logPath);
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+
+    const scriptPath = path.join(process.cwd(), '../enrich_products.py');
+    fs.appendFileSync(logPath, `[Chrome Enrichment] Starting enrich_products.py at ${new Date().toLocaleString()}...\n`);
+
+    enrichmentProcess = spawn('python', [scriptPath], {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
     });
 
-    child.unref();
+    enrichmentProcess.unref();
 
-    return NextResponse.json({ message: 'Chrome extraction started!' });
+    return NextResponse.json({ message: 'Chrome extraction (enrichment) started!' });
   } catch (error: any) {
     return NextResponse.json({ error: `Failed to start: ${error.message}` }, { status: 500 });
   }

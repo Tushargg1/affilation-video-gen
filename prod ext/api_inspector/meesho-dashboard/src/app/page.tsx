@@ -174,9 +174,19 @@ export default function Home() {
                 className="btn-primary"
                 style={{background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'}}
                 onClick={async () => {
+                  // Must call the LOCAL server via tunnel URL — Vercel can't spawn local processes
+                  const tunnelBase = process.env.NEXT_PUBLIC_API_URL;
+                  if (!tunnelBase) {
+                    alert('⚠️ Chrome Extraction requires your LOCAL server.\n\nOpen the Cloudflare tunnel URL from your terminal (start_dashboard.bat) and use THAT link instead of the Vercel URL.\n\nOr: the enrich_products.py window from start_dashboard.bat is already running enrichment automatically!');
+                    return;
+                  }
                   try {
-                    await fetch(getApiUrl('/api/start-chrome'), { method: 'POST' });
-                  } catch {}
+                    const res = await fetch(`${tunnelBase}/api/start-chrome`, { method: 'POST' });
+                    const data = await res.json();
+                    alert(data.message || data.error || 'Started!');
+                  } catch (e) {
+                    alert('Failed to connect to local server. Is start_dashboard.bat running?');
+                  }
                 }}
               >
                 🌐 Start Chrome Extraction
