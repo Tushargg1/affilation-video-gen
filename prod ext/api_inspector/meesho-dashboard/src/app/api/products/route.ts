@@ -1,21 +1,35 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { Pool } from 'pg';
 
-const execAsync = promisify(exec);
+const pool = new Pool({
+  connectionString: 'postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres',
+  ssl: { rejectUnauthorized: false },
+  max: 3,
+  idleTimeoutMillis: 10000,
+});
 
 export async function GET() {
+  let client;
   try {
-    const script = `import sqlite3, json, sys, os; sys.stdout.reconfigure(encoding='utf-8'); db_path = r'c:\\Users\\tusha\\OneDrive\\Desktop\\affilation video gen\\prod ext\\api_inspector\\data\\meesho_products.db'; conn = sqlite3.connect(db_path); cursor = conn.cursor(); cursor.execute('SELECT * FROM auto_products ORDER BY id DESC LIMIT 50'); columns = [desc[0] for desc in cursor.description]; print(json.dumps([dict(zip(columns, row)) for row in cursor.fetchall()]))`;
-    
-    const { stdout } = await execAsync(`python -c "${script}"`);
-    let products = JSON.parse(stdout);
-    products = products.map((p: any) => {
-      if (p.created_at && !p.created_at.endsWith('Z')) p.created_at += 'Z';
-      return p;
-    });
+    client = await pool.connect();
+    const result = await client.query(`
+      SELECT id, title, price, commission_percent, product_url,
+             image_url, review_star, total_bought, video_created, created_at
+      FROM auto_products
+      ORDER BY id DESC
+      LIMIT 100
+    `);
+    const products = result.rows.map((p: any) => ({
+      ...p,
+      // Filter out FAILED placeholder
+      image_url: p.image_url === 'FAILED' ? null : p.image_url,
+      created_at: p.created_at ? String(p.created_at) : null,
+    }));
     return NextResponse.json({ products });
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Products API error:', error?.message);
     return NextResponse.json({ products: [] });
+  } finally {
+    client?.release();
   }
 }

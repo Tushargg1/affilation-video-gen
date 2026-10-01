@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { Pool } from 'pg';
 
-const execAsync = promisify(exec);
+const pool = new Pool({
+  connectionString: 'postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres',
+  ssl: { rejectUnauthorized: false },
+  max: 3,
+  idleTimeoutMillis: 10000,
+});
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -16,16 +20,23 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request) {
+  let client;
   try {
     const { ids } = await request.json();
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return NextResponse.json({ error: 'No IDs provided' }, { status: 400 });
     }
-
-    const deleteScript = require('path').join(process.cwd(), 'scripts', 'delete.py');
-    const { stdout } = await execAsync(`python "${deleteScript}" "${ids.join(',')}"`);
-    return NextResponse.json({ deleted: parseInt(stdout.trim()) || 0 });
+    client = await pool.connect();
+    const placeholders = ids.map((_: any, i: number) => `$${i + 1}`).join(', ');
+    const result = await client.query(
+      `DELETE FROM auto_products WHERE id IN (${placeholders})`,
+      ids
+    );
+    return NextResponse.json({ deleted: result.rowCount ?? 0 });
   } catch (error: any) {
+    console.error('Delete error:', error?.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  } finally {
+    client?.release();
   }
 }

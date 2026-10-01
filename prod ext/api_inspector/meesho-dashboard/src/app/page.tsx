@@ -159,7 +159,7 @@ export default function Home() {
               </label>
             </div>
             
-            <div className="form-group" style={{marginTop: '2rem'}}>
+            <div className="form-group" style={{marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
               {!isRunning ? (
                 <button type="submit" className="btn-primary">
                   ▶ Start Extraction
@@ -169,6 +169,18 @@ export default function Home() {
                   ⏹ Stop Automation
                 </button>
               )}
+              <button
+                type="button"
+                className="btn-primary"
+                style={{background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'}}
+                onClick={async () => {
+                  try {
+                    await fetch(getApiUrl('/api/start-chrome'), { method: 'POST' });
+                  } catch {}
+                }}
+              >
+                🌐 Start Chrome Extraction
+              </button>
             </div>
           </form>
 
@@ -235,16 +247,35 @@ export default function Home() {
               </div>
             ) : (
               displayedProducts.map((p: any) => (
-                <div key={p.id} className="product-item">
-                  <div className="product-info">
+                <div key={p.id} className="product-item" style={{alignItems: 'flex-start', gap: '0.75rem'}}>
+                  {/* Product thumbnail */}
+                  {p.image_url ? (
+                    <img
+                      src={p.image_url}
+                      alt={p.title}
+                      style={{
+                        width: '64px', height: '64px', objectFit: 'cover',
+                        borderRadius: '8px', flexShrink: 0, border: '1px solid #e2e8f0'
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: '64px', height: '64px', borderRadius: '8px', flexShrink: 0,
+                      background: '#f1f5f9', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: '1.5rem', color: '#94a3b8'
+                    }}>🖼️</div>
+                  )}
+                  <div className="product-info" style={{flex: 1, minWidth: 0}}>
                     <div className="product-title">{p.title}</div>
                     <div className="product-meta">
                       <span className="product-price">₹{p.price}</span>
                       <span>Comm: {p.commission_percent}%</span>
+                      {p.review_star && <span>⭐ {p.review_star}</span>}
+                      {p.total_bought && <span style={{fontSize:'0.75rem', color:'#64748b'}}>{p.total_bought}</span>}
                       <a href={p.product_url} target="_blank" rel="noreferrer" style={{color: '#4f46e5', textDecoration: 'none'}}>View Link ↗</a>
                     </div>
                   </div>
-                  <div className="checkbox-wrapper">
+                  <div className="checkbox-wrapper" style={{flexShrink: 0}}>
                     <input 
                       type="checkbox"
                       checked={p.video_created === 1}

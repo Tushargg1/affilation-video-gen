@@ -1,19 +1,28 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { Pool } from 'pg';
 
-const execAsync = promisify(exec);
+const pool = new Pool({
+  connectionString: 'postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres',
+  ssl: { rejectUnauthorized: false },
+  max: 3,
+  idleTimeoutMillis: 10000,
+});
 
 export async function POST(request: Request) {
+  let client;
   try {
     const { id, video_created } = await request.json();
     const val = video_created ? 1 : 0;
-    
-    const script = `import sqlite3; conn = sqlite3.connect('../data/meesho_products.db'); conn.execute('UPDATE auto_products SET video_created = ? WHERE id = ?', (${val}, ${id})); conn.commit()`;
-    await execAsync(`python -c "${script}"`);
-    
+    client = await pool.connect();
+    await client.query(
+      'UPDATE auto_products SET video_created = $1 WHERE id = $2',
+      [val, id]
+    );
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Update error:', error?.message);
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
+  } finally {
+    client?.release();
   }
 }

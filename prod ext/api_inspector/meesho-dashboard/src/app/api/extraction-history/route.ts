@@ -1,17 +1,25 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { Pool } from 'pg';
 
-const execAsync = promisify(exec);
+const pool = new Pool({
+  connectionString: 'postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres',
+  ssl: { rejectUnauthorized: false },
+  max: 3,
+  idleTimeoutMillis: 10000,
+});
 
 export async function GET() {
+  let client;
   try {
-    const script = `import sqlite3, json, sys; sys.stdout.reconfigure(encoding='utf-8'); db_path = r'c:\\Users\\tusha\\OneDrive\\Desktop\\affilation video gen\\prod ext\\api_inspector\\data\\meesho_products.db'; conn = sqlite3.connect(db_path); cursor = conn.cursor(); cursor.execute('SELECT * FROM extraction_sessions ORDER BY id DESC LIMIT 50'); columns = [desc[0] for desc in cursor.description]; print(json.dumps([dict(zip(columns, row)) for row in cursor.fetchall()]))`;
-    
-    const { stdout } = await execAsync(`python -c "${script}"`);
-    let sessions = JSON.parse(stdout);
-    return NextResponse.json({ sessions });
-  } catch (error) {
+    client = await pool.connect();
+    const result = await client.query(
+      'SELECT * FROM extraction_sessions ORDER BY id DESC LIMIT 50'
+    );
+    return NextResponse.json({ sessions: result.rows });
+  } catch (error: any) {
+    console.error('Extraction history error:', error?.message);
     return NextResponse.json({ sessions: [] });
+  } finally {
+    client?.release();
   }
 }
