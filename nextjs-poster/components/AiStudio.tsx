@@ -104,19 +104,38 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     
     setIsSending(true);
     try {
-      let imageBase64 = null;
+      let mediaPayload: string[] = [];
+      
+      // 1. Get Product Image (Required)
+      if (selectedProduct?.image_url) {
+        try {
+          const res = await fetch(selectedProduct.image_url);
+          const blob = await res.blob();
+          const reader = new FileReader();
+          const productB64 = await new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+          if (productB64) mediaPayload.push(productB64 as string);
+        } catch(e) {
+          console.warn("Could not fetch product image for extension.", e);
+        }
+      }
+
+      // 2. Get Model Photo (Optional)
       if (modelPhotoUrl) {
-        // Convert the blob URL to base64
-        const res = await fetch(modelPhotoUrl);
-        const blob = await res.blob();
-        const reader = new FileReader();
-        await new Promise((resolve) => {
-          reader.onloadend = () => {
-            imageBase64 = reader.result;
-            resolve(true);
-          };
-          reader.readAsDataURL(blob);
-        });
+        try {
+          const res = await fetch(modelPhotoUrl);
+          const blob = await res.blob();
+          const reader = new FileReader();
+          const modelB64 = await new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+          if (modelB64) mediaPayload.push(modelB64 as string);
+        } catch(e) {
+          console.warn("Could not fetch model photo for extension.", e);
+        }
       }
 
       const response = await fetch('http://localhost:3001/api/job', {
@@ -125,7 +144,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
         body: JSON.stringify({
           imagePrompt,
           videoPrompt,
-          imageBase64
+          imageBase64: mediaPayload // Now an array of multiple images!
         })
       });
 
