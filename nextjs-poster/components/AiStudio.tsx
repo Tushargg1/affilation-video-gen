@@ -140,85 +140,84 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     setIsSending(false);
   };
 
+  const callGeminiWithFallback = async (promptText: string, imageUrl: string, modelImageUrl: string | null, onStatus: (msg: string, type: 'info'|'warning') => void) => {
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+    
+    for (let i = 0; i < modelsToTry.length; i++) {
+      const currentModel = modelsToTry[i];
+      if (i > 0) {
+        onStatus(`Model ${modelsToTry[i-1].replace('gemini-', '')} failed... Waiting 2s, then trying ${currentModel.replace('gemini-', '')}...`, 'warning');
+        await new Promise(r => setTimeout(r, 2000));
+      } else {
+        onStatus(`Generating via ${currentModel.replace('gemini-', '')}...`, 'info');
+      }
+
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: promptText,
+          imageUrl,
+          modelImageUrl,
+          model: currentModel
+        })
+      });
+      const resData = await res.json();
+      
+      if (res.ok) return resData;
+      
+      if (i === modelsToTry.length - 1) {
+        throw new Error(resData.error || 'All fallback models failed.');
+      }
+    }
+  };
+
   const generatePrompts = async () => {
     if (!selectedProduct || !selectedProduct.image_url) {
       return setStatus({ type: 'error', message: 'Please select a product that has an image.' });
     }
     setIsLoading(true);
     try {
-      const modelsToTry = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
-      let data = null;
+      const imgPromptText = schedulerConfig.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting). Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography. Return ONLY the final prompt text.`;
       
-      for (let i = 0; i < modelsToTry.length; i++) {
-        const currentModel = modelsToTry[i];
-        
-        if (i > 0) {
-          setStatus({ type: 'warning', message: `Model ${modelsToTry[i-1].replace('gemini-', '')} failed... Waiting 2s, then trying ${currentModel.replace('gemini-', '')} next...` });
-          await new Promise(r => setTimeout(r, 2000)); // Delay to avoid instant rate limiting
-        } else {
-          setStatus({ type: 'info', message: `Generating Image & Video prompts via ${currentModel.replace('gemini-', '')}...` });
-        }
+      const vidPromptText = schedulerConfig.base_video_prompt || `Write a highly detailed text-to-video prompt to create a stunning, high-converting product showcase video. The video must be exactly 10 seconds long. Focus on smooth, premium camera movements (e.g., slow cinematic pan, dynamic orbital shot, or elegant zoom). Describe the lighting as professional and cinematic. Highlight the product's textures and aesthetic appeal. Include keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed. Return ONLY the final prompt text.`;
 
-        // Generate BOTH Image and Video Prompts in a single request to save API limits
-        const res = await fetch('/api/gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: `You are an expert AI prompt engineer. Analyze BOTH the attached product image and the attached model photo (if provided) and write TWO highly detailed prompts.
+      // 1. Generate Image Prompt
+      const imgData = await callGeminiWithFallback(
+        imgPromptText, 
+        selectedProduct.image_url, 
+        modelPhotoUrl, 
+        (msg, type) => setStatus({ type, message: `[Image Prompt] ${msg}` })
+      );
+      setImagePrompt(imgData.text);
+      setUsedModel(imgData.usedModel || 'gemini-3.8-flash');
 
-1. IMAGE PROMPT: ${schedulerConfig.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting). Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography.`}
+      // 2. Short delay before Video Prompt to avoid hitting RPM limit
+      setStatus({ type: 'info', message: 'Waiting 2 seconds before generating Video Prompt to respect API limits...' });
+      await new Promise(r => setTimeout(r, 2000));
 
-2. VIDEO PROMPT: ${schedulerConfig.base_video_prompt || `Write a highly detailed text-to-video prompt to create a stunning, high-converting product showcase video. The video must be exactly 10 seconds long. Focus on smooth, premium camera movements (e.g., slow cinematic pan, dynamic orbital shot, or elegant zoom). Describe the lighting as professional and cinematic. Highlight the product's textures and aesthetic appeal. Include keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed.`}
+      // 3. Generate Video Prompt
+      const vidData = await callGeminiWithFallback(
+        vidPromptText, 
+        selectedProduct.image_url, 
+        null, // No model photo for video prompt generation
+        (msg, type) => setStatus({ type, message: `[Video Prompt] ${msg}` })
+      );
+      setVideoPrompt(vidData.text);
 
-Return the output EXACTLY in this JSON format, with no markdown formatting, no backticks, and no introductory text:
-{
-  "imagePrompt": "your image prompt here",
-  "videoPrompt": "your video prompt here"
-}`,
-            imageUrl: selectedProduct.image_url,
-            modelImageUrl: modelPhotoUrl,
-            model: currentModel
-          })
-        });
-        
-        const resData = await res.json();
-        
-        if (res.ok) {
-          data = resData;
-          break; // Success! Exit the loop.
-        }
-        
-        // If this is the last model in the array, throw the final error
-        if (i === modelsToTry.length - 1) {
-          throw new Error(resData.error || 'All fallback models failed.');
-        }
-      }
-      
-      setUsedModel(data.usedModel || 'gemini-3.8-flash');
-
-      try {
-        const parsed = JSON.parse(data.text);
-        setImagePrompt(parsed.imagePrompt || data.text);
-        setVideoPrompt(parsed.videoPrompt || data.text);
-      } catch (parseError) {
-        // Fallback if model fails to output valid JSON
-        setImagePrompt(data.text);
-        setVideoPrompt(data.text);
-      }
-      
       // Save both to DB
       await fetch('/api/db/products/update-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           id: selectedProduct.id, 
-          image_prompt: imagePrompt || (data.text.includes('imagePrompt') ? JSON.parse(data.text).imagePrompt : data.text),
-          video_prompt: videoPrompt || (data.text.includes('videoPrompt') ? JSON.parse(data.text).videoPrompt : data.text),
-          used_model: data.usedModel || 'gemini-3.8-flash'
+          image_prompt: imgData.text,
+          video_prompt: vidData.text,
+          used_model: imgData.usedModel || 'gemini-3.8-flash'
         })
       });
       
-      setStatus({ type: 'success', message: 'Both prompts generated and saved successfully!' });
+      setStatus({ type: 'success', message: 'Both prompts generated sequentially and saved successfully!' });
     } catch (e: any) {
       setStatus({ type: 'error', message: `Generation failed: ${e.message}` });
     }
@@ -248,63 +247,32 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
         let vidPrompt = prod.video_prompt;
         
         if (!imgPrompt || !vidPrompt) {
-          log('Generating prompts via Gemini (Single Request)...');
+          const imgPromptText = schedulerConfig.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting). Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography. Return ONLY the final prompt text.`;
           
-          const modelsToTry = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
-          let data = null;
+          const vidPromptText = schedulerConfig.base_video_prompt || `Write a highly detailed text-to-video prompt to create a stunning, high-converting product showcase video. The video must be exactly 10 seconds long. Focus on smooth, premium camera movements (e.g., slow cinematic pan, dynamic orbital shot, or elegant zoom). Describe the lighting as professional and cinematic. Highlight the product's textures and aesthetic appeal. Include keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed. Return ONLY the final prompt text.`;
+
+          // 1. Generate Image Prompt
+          const imgData = await callGeminiWithFallback(
+            imgPromptText, 
+            prod.image_url, 
+            prod.model_photo_url || localStorage.getItem('global_model_photo'), 
+            (msg) => log(`[Image Prompt] ${msg}`)
+          );
+          imgPrompt = imgData.text;
+
+          // 2. Short delay before Video Prompt to avoid hitting RPM limit
+          log('Waiting 2 seconds before generating Video Prompt to respect API limits...');
+          await new Promise(r => setTimeout(r, 2000));
+
+          // 3. Generate Video Prompt
+          const vidData = await callGeminiWithFallback(
+            vidPromptText, 
+            prod.image_url, 
+            null, // No model photo for video prompt generation
+            (msg) => log(`[Video Prompt] ${msg}`)
+          );
+          vidPrompt = vidData.text;
           
-          for (let i = 0; i < modelsToTry.length; i++) {
-            const currentModel = modelsToTry[i];
-            
-            if (i > 0) {
-              log(`Model ${modelsToTry[i-1].replace('gemini-', '')} failed... Waiting 2s, then trying ${currentModel.replace('gemini-', '')}...`);
-              await new Promise(r => setTimeout(r, 2000));
-            } else {
-              log(`Trying ${currentModel.replace('gemini-', '')}...`);
-            }
-
-            // Generate BOTH Image and Video Prompts in a single request
-            const res = await fetch('/api/gemini', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                prompt: `You are an expert AI prompt engineer. Analyze BOTH the attached product image and the attached model photo (if provided) and write TWO highly detailed prompts.
-
-1. IMAGE PROMPT: ${schedulerConfig.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting). Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography.`}
-
-2. VIDEO PROMPT: ${schedulerConfig.base_video_prompt || `Write a highly detailed text-to-video prompt to create a stunning, high-converting product showcase video. The video must be exactly 10 seconds long. Focus on smooth, premium camera movements (e.g., slow cinematic pan, dynamic orbital shot, or elegant zoom). Describe the lighting as professional and cinematic. Highlight the product's textures and aesthetic appeal. Include keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed.`}
-
-Return the output EXACTLY in this JSON format, with no markdown formatting, no backticks, and no introductory text:
-{
-  "imagePrompt": "your image prompt here",
-  "videoPrompt": "your video prompt here"
-}`,
-                imageUrl: prod.image_url,
-                modelImageUrl: prod.model_photo_url || localStorage.getItem('global_model_photo'),
-                model: currentModel
-              })
-            });
-            
-            const resData = await res.json();
-            if (res.ok) {
-              data = resData;
-              break;
-            }
-            
-            if (i === modelsToTry.length - 1) {
-              throw new Error(resData.error || 'All fallback models failed.');
-            }
-          }
-          
-          try {
-            const parsed = JSON.parse(data.text);
-            imgPrompt = parsed.imagePrompt || data.text;
-            vidPrompt = parsed.videoPrompt || data.text;
-          } catch (parseError) {
-            imgPrompt = data.text;
-            vidPrompt = data.text;
-          }
-
           // Save to DB
           await fetch('/api/db/products/update-prompt', {
             method: 'POST',
@@ -313,7 +281,7 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
               id: prod.id, 
               image_prompt: imgPrompt, 
               video_prompt: vidPrompt,
-              used_model: data?.usedModel || 'gemini-3.8-flash'
+              used_model: imgData.usedModel || 'gemini-3.8-flash'
             })
           });
         }
