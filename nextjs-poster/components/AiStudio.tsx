@@ -43,6 +43,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   
   const [imagePrompt, setImagePrompt] = useState<string>('');
   const [videoPrompt, setVideoPrompt] = useState<string>('');
+  const [usedModel, setUsedModel] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<{type: string, message: string} | null>(null);
@@ -62,6 +63,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     if (p) {
       setImagePrompt(p.image_prompt || '');
       setVideoPrompt(p.video_prompt || '');
+      setUsedModel(p.used_model || '');
       setModelPhotoUrl(p.model_photo_url || globalPhoto || '');
     }
   };
@@ -170,6 +172,8 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       
+      setUsedModel(data.usedModel || 'gemini-3.8-flash');
+
       try {
         const parsed = JSON.parse(data.text);
         setImagePrompt(parsed.imagePrompt || data.text);
@@ -186,8 +190,9 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           id: selectedProduct.id, 
-          image_prompt: imgData.text,
-          video_prompt: vidData.text
+          image_prompt: imagePrompt || (data.text.includes('imagePrompt') ? JSON.parse(data.text).imagePrompt : data.text),
+          video_prompt: videoPrompt || (data.text.includes('videoPrompt') ? JSON.parse(data.text).videoPrompt : data.text),
+          used_model: data.usedModel || 'gemini-3.8-flash'
         })
       });
       
@@ -259,7 +264,12 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
           await fetch('/api/db/products/update-prompt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: prod.id, image_prompt: imgPrompt, video_prompt: vidPrompt })
+            body: JSON.stringify({ 
+              id: prod.id, 
+              image_prompt: imgPrompt, 
+              video_prompt: vidPrompt,
+              used_model: data?.usedModel || 'gemini-3.8-flash'
+            })
           });
         }
 
@@ -498,7 +508,10 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
           {imagePrompt && (
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-bold text-indigo-900">Generated Image Prompt</label>
+                <div className="flex items-center gap-3">
+                  <label className="block text-sm font-bold text-indigo-900">Generated Image Prompt</label>
+                  {usedModel && <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full border border-indigo-200 shadow-sm">🤖 {usedModel}</span>}
+                </div>
                 <button onClick={() => navigator.clipboard.writeText(imagePrompt)} className="text-xs bg-indigo-200 text-indigo-800 px-2 py-1 rounded hover:bg-indigo-300">Copy</button>
               </div>
               <textarea 
@@ -512,7 +525,10 @@ Return the output EXACTLY in this JSON format, with no markdown formatting, no b
           {videoPrompt && (
             <div className="pt-2">
               <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-bold text-purple-900">Generated Video Prompt</label>
+                <div className="flex items-center gap-3">
+                  <label className="block text-sm font-bold text-purple-900">Generated Video Prompt</label>
+                  {usedModel && <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2 py-1 rounded-full border border-purple-200 shadow-sm">🤖 {usedModel}</span>}
+                </div>
                 <button onClick={() => navigator.clipboard.writeText(videoPrompt)} className="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded hover:bg-purple-300">Copy</button>
               </div>
               <textarea 
