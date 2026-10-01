@@ -4,17 +4,24 @@ echo ===================================================
 echo     Meesho Automation Dashboard Launcher
 echo ===================================================
 echo.
+
+:: Ensure we are in the script's directory (api_inspector)
+cd /d "%~dp0"
+
 echo Starting Next.js Local Server...
-cd meesho-dashboard
+:: nextjs-poster is located two levels up in the root folder
+cd ..\..\nextjs-poster
 start "Next.js Server (Do not close)" cmd /c "npm run dev -- -p 3333"
+
+:: Go back to api_inspector directory
+cd /d "%~dp0"
 
 echo Waiting 5 seconds for the server to initialize...
 timeout /t 5 /nobreak >nul
 
 echo.
 echo Starting Product Enrichment Daemon...
-start "Product Enrichment (Do not close)" cmd /c "python ..\enrich_products.py"
-
+start "Product Enrichment (Do not close)" cmd /c "python enrich_products.py"
 
 echo.
 echo Starting Cloudflare Tunnel and opening Vercel App...
@@ -22,5 +29,5 @@ echo ===================================================
 echo Keep this window open! It links Vercel to your PC.
 echo ===================================================
 echo.
-python ..\launcher.py
+python launcher.py
 pause

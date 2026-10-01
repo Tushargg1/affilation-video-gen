@@ -2,13 +2,58 @@ const express = require('express');
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
+const cors = require('cors');
 
 const app = express();
-app.use(express.json());
+app.use(cors());
+app.use(express.json({ limit: '50mb' })); // Increase limit for images
 
 // Serve the UI page
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'ui.html'));
+});
+
+let currentJob = null;
+
+app.post('/api/job', (req, res) => {
+    const { imagePrompt, videoPrompt, imageBase64 } = req.body;
+    if (!imagePrompt) return res.status(400).json({ success: false, error: 'Missing prompts' });
+    currentJob = { imagePrompt, videoPrompt, imageBase64, timestamp: Date.now() };
+    console.log(`\n📥 Received new Video Gen Job from Dashboard!`);
+    res.json({ success: true, message: 'Job queued for extension!' });
+});
+
+app.get('/api/job', (req, res) => {
+    // The extension will poll this every few seconds
+    if (currentJob) {
+        res.json({ hasJob: true, job: currentJob });
+    } else {
+        res.json({ hasJob: false });
+    }
+});
+
+app.delete('/api/job', (req, res) => {
+    currentJob = null;
+    console.log(`\n✅ Job picked up and cleared by the extension!`);
+    res.json({ success: true });
+});
+
+let jobResult = null;
+
+app.post('/api/result', (req, res) => {
+    jobResult = req.body;
+    console.log(`\n🎉 Received result from extension! (success: ${jobResult.success})`);
+    res.json({ success: true });
+});
+
+app.get('/api/result', (req, res) => {
+    if (jobResult) {
+        const result = jobResult;
+        jobResult = null; // Clear it so we don't return it twice
+        res.json({ hasResult: true, result });
+    } else {
+        res.json({ hasResult: false });
+    }
 });
 
 app.post('/generate', async (req, res) => {

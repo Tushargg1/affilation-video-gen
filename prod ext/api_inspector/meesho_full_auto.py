@@ -23,28 +23,8 @@ DB_PATH = Path("data/meesho_products.db")
 
 def setup_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with psycopg2.connect("postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require") as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS auto_products (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT,
-                price REAL,
-                commission_percent REAL,
-                product_url TEXT UNIQUE,
-                category TEXT,
-                video_created INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS extraction_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                keyword TEXT,
-                total_extracted INTEGER DEFAULT 0
-            )
-        """)
-        conn.commit()
+    # Supabase PostgreSQL schema is already initialized.
+    pass
 
 session_id = None
 
@@ -865,7 +845,8 @@ def run_automation(target_count=9999999):
 
         try:
             with psycopg2.connect("postgres://postgres.lgzqxzfepgfatdseiwxh:r4H2CJmPhWnZx8n4@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require") as conn:
-                cur = conn.execute(
+                cur = conn.cursor()
+                cur.execute(
                     "INSERT INTO auto_products "
                     "(commission_percent, product_url) "
                     "VALUES (%s, %s) ON CONFLICT (product_url) DO NOTHING",

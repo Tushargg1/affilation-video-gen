@@ -32,10 +32,21 @@ export async function POST(request: Request) {
       `DELETE FROM auto_products WHERE id IN (${placeholders})`,
       ids
     );
-    return NextResponse.json({ deleted: result.rowCount ?? 0 });
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+
+    return NextResponse.json({ deleted: result.rowCount ?? 0 }, { headers: corsHeaders });
   } catch (error: any) {
     console.error('Delete error:', error?.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+    return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
   } finally {
     client?.release();
   }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 
 let enrichmentProcess: ReturnType<typeof spawn> | null = null;
 
@@ -11,9 +11,26 @@ export async function GET() {
 
 export async function POST() {
   try {
-    // Don't start a second instance if already running
-    if (enrichmentProcess && enrichmentProcess.exitCode === null) {
-      return NextResponse.json({ message: 'Enrichment already running!' });
+    // Kill any existing instances to avoid Chrome Profile lock conflicts
+    // Using taskkill instead of wmic because wmic is deprecated on newer Windows 11 builds
+    try {
+      execSync('taskkill /F /IM undetected_chromedriver.exe /T', { stdio: 'ignore' });
+    } catch (e) {}
+    
+    // Attempt to copy the user's real Chrome cookies to bypass Akamai
+    // This will gracefully fail if Chrome is open, but will succeed if Chrome is closed.
+    try {
+      const srcCookies = path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'User Data', 'Profile 2', 'Network', 'Cookies');
+      const destProfile = path.join(process.env.USERPROFILE || '', '.meesho_uc_profile', 'Default', 'Network');
+      if (!fs.existsSync(destProfile)) {
+        fs.mkdirSync(destProfile, { recursive: true });
+      }
+      if (fs.existsSync(srcCookies)) {
+        fs.copyFileSync(srcCookies, path.join(destProfile, 'Cookies'));
+        console.log("Successfully synced cookies for Akamai bypass");
+      }
+    } catch (e) {
+      console.log("Cookie sync skipped (file locked by Chrome). Existing cookies will be used.");
     }
 
     const logPath = path.join(process.cwd(), '../data/automation.log');

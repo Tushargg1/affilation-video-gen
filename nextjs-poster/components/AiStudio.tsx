@@ -15,6 +15,9 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
 
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<{type: string, message: string} | null>(null);
+  
+  const [isAutomating, setIsAutomating] = useState(false);
+  const [automationLog, setAutomationLog] = useState<string[]>([]);
 
   const categories = Array.from(new Set(products.map(p => p.category || 'Uncategorized').filter(Boolean)));
   const categoryProducts = products.filter(p => (p.category || 'Uncategorized') === selectedCategory);
@@ -56,6 +59,52 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     setIsLoading(false);
   };
 
+  const [isSending, setIsSending] = useState(false);
+
+  const sendToAutomation = async () => {
+    if (!imagePrompt || !videoPrompt) {
+      alert("Please generate prompts first.");
+      return;
+    }
+    
+    setIsSending(true);
+    try {
+      let imageBase64 = null;
+      if (modelPhotoUrl) {
+        // Convert the blob URL to base64
+        const res = await fetch(modelPhotoUrl);
+        const blob = await res.blob();
+        const reader = new FileReader();
+        await new Promise((resolve) => {
+          reader.onloadend = () => {
+            imageBase64 = reader.result;
+            resolve(true);
+          };
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      const response = await fetch('http://localhost:3001/api/job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imagePrompt,
+          videoPrompt,
+          imageBase64
+        })
+      });
+
+      if (response.ok) {
+        alert('✅ Sent to Automation!\nThe extension will pick it up automatically within 5 seconds.');
+      } else {
+        alert('❌ Failed. Make sure the local server (node server.js) is running on port 3001.');
+      }
+    } catch (e) {
+      alert('❌ Error: Could not connect to local server on port 3001.');
+    }
+    setIsSending(false);
+  };
+
   const generatePrompts = async () => {
     if (!selectedProduct || !selectedProduct.image_url) {
       return setStatus({ type: 'error', message: 'Please select a product that has an image.' });
@@ -69,7 +118,10 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: schedulerConfig.base_image_prompt || 'Describe this product for AI image generation.',
+          prompt: schedulerConfig.base_image_prompt || `You are an expert AI prompt engineer. Analyze the attached product image and write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. 
+Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting, etc.). 
+Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography.
+Return ONLY the final prompt text, with no introductory text or markdown formatting.`,
           imageUrl: selectedProduct.image_url,
           model: 'gemini-1.5-flash-8b'
         })
@@ -83,7 +135,12 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: schedulerConfig.base_video_prompt || 'Write a video prompt for this product.',
+          prompt: schedulerConfig.base_video_prompt || `You are an expert AI prompt engineer. Analyze the attached product image and write a highly detailed text-to-video prompt to create a stunning, high-converting product showcase video. 
+The video must be exactly 10 seconds long. 
+Focus on smooth, premium camera movements (e.g., slow cinematic pan, dynamic orbital shot, or elegant zoom). 
+Describe the lighting as professional and cinematic. Highlight the product's textures and aesthetic appeal.
+Include keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed.
+Return ONLY the final prompt text, with no introductory text or markdown formatting.`,
           imageUrl: selectedProduct.image_url,
           model: 'gemini-1.5-flash-8b'
         })
@@ -110,11 +167,222 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     setIsLoading(false);
   };
 
+  const runDailyAutomation = async () => {
+    setIsAutomating(true);
+    setAutomationLog([]);
+    const log = (msg: string) => setAutomationLog(prev => [...prev, msg]);
+
+    try {
+      // 1. Find up to 4 products that don't have video_url
+      const pendingProducts = products.filter(p => !p.video_url).slice(0, 4);
+      if (pendingProducts.length === 0) {
+        log("No pending products to process today!");
+        setIsAutomating(false);
+        return;
+      }
+
+      log(`Found ${pendingProducts.length} products to automate!`);
+
+      for (const prod of pendingProducts) {
+        log(`\n--- Starting Product: ${prod.title} ---`);
+        
+        let imgPrompt = prod.image_prompt;
+        let vidPrompt = prod.video_prompt;
+        
+        if (!imgPrompt || !vidPrompt) {
+          log('Generating prompts via Gemini...');
+          // Generate Image Prompt
+          const imgRes = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: schedulerConfig.base_image_prompt || `You are an expert AI prompt engineer. Analyze the attached product image and write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. 
+Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting, etc.). 
+Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography.
+Return ONLY the final prompt text, with no introductory text or markdown formatting.`,
+              imageUrl: prod.image_url,
+              model: 'gemini-1.5-flash-8b'
+            })
+          });
+          const imgData = await imgRes.json();
+          imgPrompt = imgData.text;
+
+          // Generate Video Prompt
+          const vidRes = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: schedulerConfig.base_video_prompt || `You are an expert AI prompt engineer. Analyze the attached product image and write a highly detailed text-to-video prompt to create a stunning, high-converting product showcase video. 
+The video must be exactly 10 seconds long. 
+Focus on smooth, premium camera movements (e.g., slow cinematic pan, dynamic orbital shot, or elegant zoom). 
+Describe the lighting as professional and cinematic. Highlight the product's textures and aesthetic appeal.
+Include keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed.
+Return ONLY the final prompt text, with no introductory text or markdown formatting.`,
+              imageUrl: prod.image_url,
+              model: 'gemini-1.5-flash-8b'
+            })
+          });
+          const vidData = await vidRes.json();
+          vidPrompt = vidData.text;
+
+          // Save to DB
+          await fetch('/api/db/products/update-prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: prod.id, image_prompt: imgPrompt, video_prompt: vidPrompt })
+          });
+        }
+
+        // Convert Product Photo URL to Base64 (for the extension)
+        log('Converting product image to Base64...');
+        let productImgBase64 = null;
+        if (prod.image_url) {
+          try {
+            const res = await fetch(prod.image_url);
+            const blob = await res.blob();
+            productImgBase64 = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            });
+          } catch(e) {
+            log('Warning: Failed to fetch image_url directly (CORS?). Proceeding anyway.');
+          }
+        }
+
+        // CLEAR any old result from the bridge first
+        try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
+
+        // Send IMAGE job to extension
+        log('Sending Image Job to extension...');
+        try {
+          await fetch('http://localhost:3001/api/job', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imagePrompt: imgPrompt, videoPrompt: '', imageBase64: productImgBase64 })
+          });
+        } catch(e) {
+          log('❌ Bridge server offline! Make sure node server.js is running on port 3001.');
+          break;
+        }
+
+        // Poll for Image Job result
+        log('Waiting for Image Generation... (Takes a few minutes)');
+        let finalImageBase64 = null;
+        while (true) {
+          await new Promise(r => setTimeout(r, 5000));
+          try {
+            const res = await fetch('http://localhost:3001/api/result');
+            if (res.ok) {
+              const data = await res.json();
+              if (data.hasResult) {
+                log('✅ Image generation complete!');
+                finalImageBase64 = data.result.mediaBase64;
+                break;
+              }
+            }
+          } catch(e) {
+            // Ignore polling errors
+          }
+        }
+
+        if (!finalImageBase64) {
+          log('❌ Failed to get image from extension! Skipping product.');
+          continue;
+        }
+
+        // CLEAR any old result
+        try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
+
+        // Send VIDEO job to extension
+        log('Sending Video Job to extension...');
+        await fetch('http://localhost:3001/api/job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imagePrompt: '', videoPrompt: vidPrompt, imageBase64: finalImageBase64 })
+        });
+
+        // Poll for Video Job result
+        log('Waiting for Video Generation... (Takes a few minutes)');
+        let finalVideoBase64 = null;
+        while (true) {
+          await new Promise(r => setTimeout(r, 5000));
+          try {
+            const res = await fetch('http://localhost:3001/api/result');
+            if (res.ok) {
+              const data = await res.json();
+              if (data.hasResult) {
+                log('✅ Video generation complete!');
+                finalVideoBase64 = data.result.mediaBase64;
+                break;
+              }
+            }
+          } catch(e) {}
+        }
+
+        if (!finalVideoBase64) {
+          log('❌ Failed to get video from extension! Skipping product.');
+          continue;
+        }
+
+        // Upload Video to Vercel Blob and save to DB
+        log('Uploading Video to cloud storage...');
+        try {
+          const vRes = await fetch(finalVideoBase64);
+          const vBlob = await vRes.blob();
+          
+          // Determine extension from MIME type
+          const ext = vBlob.type.includes('image') ? 'jpg' : 'mp4';
+          const vFile = new File([vBlob], \`product-\${prod.id}-media.\${ext}\`, { type: vBlob.type });
+          
+          const newVideoBlob = await upload(vFile.name, vFile, {
+            access: 'public',
+            handleUploadUrl: '/api/upload'
+          });
+
+          log('Saving Video URL to Database...');
+          await fetch('/api/db/products/update-prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: prod.id, video_url: newVideoBlob.url })
+          });
+          
+          log(\`🎉 Finished Product: \${prod.title}!\`);
+        } catch(e: any) {
+          log(\`❌ Failed to upload final media: \${e.message}\`);
+        }
+      }
+      
+      log('\n✅ Daily Automation Complete! All products processed.');
+    } catch (e: any) {
+      log(\`❌ Automation Error: \${e.message}\`);
+    }
+    setIsAutomating(false);
+  };
+
   return (
     <div className="bg-white rounded-xl shadow p-6 mb-8 border border-indigo-100">
-      <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-        <span>✨</span> AI Content Studio
-      </h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <span>✨</span> AI Content Studio
+        </h2>
+        <button 
+          onClick={runDailyAutomation}
+          disabled={isAutomating}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-2"
+        >
+          {isAutomating ? '🔄 Running Automation...' : '🤖 Start Daily Automation'}
+        </button>
+      </div>
+      
+      {automationLog.length > 0 && (
+        <div className="bg-slate-900 text-green-400 p-4 rounded-lg font-mono text-sm h-64 overflow-y-auto mb-8 shadow-inner border border-slate-700">
+          {automationLog.map((log, i) => (
+            <div key={i} className="whitespace-pre-wrap">{log}</div>
+          ))}
+          {isAutomating && <div className="animate-pulse mt-2">_</div>}
+        </div>
+      )}
       
       {status && (
         <div className={`p-4 rounded-lg mb-6 ${status.type === 'error' ? 'bg-red-50 text-red-700' : status.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>
@@ -222,6 +490,22 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
                 value={videoPrompt}
                 onChange={e => setVideoPrompt(e.target.value)}
               />
+              
+              <div className="mt-8 p-4 bg-white rounded-lg border-2 border-green-500 shadow-lg">
+                <h4 className="text-lg font-bold text-green-700 mb-2 flex items-center gap-2">
+                  <span>⚡</span> Fully Automatic Google Flow
+                </h4>
+                <p className="text-sm text-slate-600 mb-4">
+                  Send these prompts and the uploaded image directly to your Chrome Extension! The extension will automatically run in the background.
+                </p>
+                <button 
+                  onClick={sendToAutomation}
+                  disabled={isSending}
+                  className="w-full bg-green-600 text-white py-4 rounded-lg font-bold text-lg shadow-[0_0_15px_rgba(34,197,94,0.4)] hover:bg-green-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                >
+                  {isSending ? 'Sending...' : '🚀 Send to Video Gen Automation'}
+                </button>
+              </div>
             </div>
           )}
         </div>
