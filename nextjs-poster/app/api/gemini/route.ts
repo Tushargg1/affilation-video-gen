@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    const { prompt, imageUrl, model = 'gemini-1.5-flash' } = await req.json();
+    const { prompt, imageUrl, model = 'gemini-3.8-flash' } = await req.json();
 
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });

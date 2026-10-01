@@ -123,7 +123,7 @@ Place the product in an aesthetic, premium environment that matches its vibe (e.
 Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography.
 Return ONLY the final prompt text, with no introductory text or markdown formatting.`,
           imageUrl: selectedProduct.image_url,
-          model: 'gemini-1.5-flash'
+          model: 'gemini-3.8-flash'
         })
       });
       const imgData = await imgRes.json();
@@ -142,7 +142,7 @@ Describe the lighting as professional and cinematic. Highlight the product's tex
 Include keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed.
 Return ONLY the final prompt text, with no introductory text or markdown formatting.`,
           imageUrl: selectedProduct.image_url,
-          model: 'gemini-1.5-flash'
+          model: 'gemini-3.8-flash'
         })
       });
       const vidData = await vidRes.json();
@@ -201,7 +201,7 @@ Place the product in an aesthetic, premium environment that matches its vibe (e.
 Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography.
 Return ONLY the final prompt text, with no introductory text or markdown formatting.`,
               imageUrl: prod.image_url,
-              model: 'gemini-1.5-flash'
+              model: 'gemini-3.8-flash'
             })
           });
           const imgData = await imgRes.json();
@@ -219,7 +219,7 @@ Describe the lighting as professional and cinematic. Highlight the product's tex
 Include keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed.
 Return ONLY the final prompt text, with no introductory text or markdown formatting.`,
               imageUrl: prod.image_url,
-              model: 'gemini-1.5-flash'
+              model: 'gemini-3.8-flash'
             })
           });
           const vidData = await vidRes.json();
