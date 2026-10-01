@@ -981,9 +981,11 @@ export default function Home() {
 
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-slate-800 truncate" title={p.title}>{p.title}</div>
-                        <div className="text-sm text-slate-500 mt-1 flex gap-4">
+                        <div className="text-sm text-slate-500 mt-1 flex flex-wrap gap-x-4 gap-y-1 items-center">
                           <span className="font-bold text-emerald-600">₹{p.price}</span>
                           <span>Comm: {p.commission_percent}%</span>
+                          {p.review_star && <span className="font-medium text-amber-500">⭐ {p.review_star}</span>}
+                          {p.total_bought && <span className="text-slate-400">{p.total_bought}</span>}
                           {p.created_at && <span className="text-slate-400">🕒 {new Date(p.created_at).toLocaleString()}</span>}
                           <a href={p.product_url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">View Link ↗</a>
                         </div>
