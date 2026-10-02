@@ -250,11 +250,12 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       
       if (res.ok) return resData;
       
-      onStatus(`Model ${currentModel.replace('gemini-', '')} failed: ${resData.error}`, 'warning');
-      
       if (i === modelsToTry.length - 1) {
         throw new Error(resData.error || 'All fallback models failed.');
       }
+      
+      const nextModel = modelsToTry[i + 1].replace('gemini-', '');
+      onStatus(`Model ${currentModel.replace('gemini-', '')} skipped due to error: "${resData.error}". Trying ${nextModel} next...`, 'warning');
       
       await new Promise(r => setTimeout(r, 2000));
     }
