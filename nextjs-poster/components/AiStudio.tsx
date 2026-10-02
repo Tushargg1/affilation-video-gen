@@ -306,9 +306,15 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
 
   const runDailyAutomation = async () => {
     // Tell the GlobalAutoPilot to wake up and run immediately
+    localStorage.setItem('digen_stop_requested', 'false');
     localStorage.setItem('digen_force_run', 'true');
     localStorage.setItem('digen_is_running', 'true'); // optimistic UI update
     setIsAutomating(true);
+  };
+
+  const stopAutomation = () => {
+    localStorage.setItem('digen_stop_requested', 'true');
+    setIsAutomating(false); // optimistic UI update
   };
 
   // Statistics Calculations
@@ -370,6 +376,16 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
               )}
             </span>
           </button>
+
+          {isAutomating && (
+            <button
+              onClick={stopAutomation}
+              className="relative inline-flex h-12 items-center justify-center rounded-full bg-red-500 hover:bg-red-600 px-6 text-sm font-bold text-white transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-red-200 gap-2"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              Stop
+            </button>
+          )}
         </div>
       </div>
 

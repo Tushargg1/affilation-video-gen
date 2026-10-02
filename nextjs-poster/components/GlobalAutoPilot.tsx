@@ -11,6 +11,8 @@ const writeLog = (msg: string) => {
   localStorage.setItem('digen_logs', JSON.stringify(currentLogs));
 };
 
+const shouldStop = () => localStorage.getItem('digen_stop_requested') === 'true';
+
 const callGeminiWithInfiniteFallback = async (prompt: string, imageUrl: string, modelImageUrl: string | null, logPrefix: string) => {
   const models = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'];
   let attempt = 0;
@@ -67,6 +69,7 @@ export default function GlobalAutoPilot() {
 
       isAutomatingRef.current = true;
       localStorage.setItem('digen_is_running', 'true');
+      localStorage.setItem('digen_stop_requested', 'false');
       
       try {
         await runHeadlessAutomation();
@@ -76,6 +79,7 @@ export default function GlobalAutoPilot() {
         isAutomatingRef.current = false;
         localStorage.setItem('digen_is_running', 'false');
         localStorage.setItem('digen_force_run', 'false');
+        localStorage.setItem('digen_stop_requested', 'false');
       }
     };
 
@@ -129,6 +133,7 @@ export default function GlobalAutoPilot() {
     writeLog(`Found ${pendingProducts.length} pending products. Daily Quota remaining: ${remainingQuota}. Starting generation...`);
 
     for (const prod of pendingProducts) {
+      if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
       writeLog(`\n--- Starting Product: ${prod.title} ---`);
       let imgPrompt = prod.image_prompt;
       let vidPrompt = prod.video_prompt;
@@ -145,6 +150,7 @@ export default function GlobalAutoPilot() {
         );
         imgPrompt = imgData.text;
         writeLog(`✅ Image Prompt saved!`);
+        if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); return; }
         await fetch('/api/db/products/update-prompt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -170,6 +176,7 @@ export default function GlobalAutoPilot() {
       }
 
       // ─── STEP 3: Send IMAGE PROMPT to extension → generate actual image ───
+      if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
       try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
       writeLog('Sending Image Prompt to extension to generate the image...');
       try {
@@ -187,6 +194,7 @@ export default function GlobalAutoPilot() {
       writeLog('Waiting for Image to be generated... (Takes a few minutes)');
       let generatedImageBase64: string | null = null;
       while (true) {
+        if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
         await new Promise(r => setTimeout(r, 5000));
         try {
           const res = await fetch('http://localhost:3001/api/result');
@@ -200,6 +208,7 @@ export default function GlobalAutoPilot() {
           }
         } catch(e) { }
       }
+      if (shouldStop()) break;
 
       if (!generatedImageBase64) {
         writeLog('❌ Failed to get generated image. Skipping to next product.');
@@ -208,6 +217,7 @@ export default function GlobalAutoPilot() {
 
       // ─── STEP 4: Use the GENERATED IMAGE to create Video Prompt text ──
       if (!vidPrompt) {
+        if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
         writeLog('Waiting 5 seconds before generating Video Prompt using the new image...');
         await new Promise(r => setTimeout(r, 5000));
 
@@ -230,6 +240,7 @@ export default function GlobalAutoPilot() {
       }
 
       // ─── STEP 5: Send VIDEO PROMPT + generated image to extension → generate video ───
+      if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
       try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
       writeLog('Sending Video Prompt + generated image to extension to create the video...');
       try {
@@ -249,6 +260,7 @@ export default function GlobalAutoPilot() {
       writeLog('Waiting for Video to be generated... (Takes a few minutes)');
       let finalVideoUrl: string | null = null;
       while (true) {
+        if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
         await new Promise(r => setTimeout(r, 5000));
         try {
           const res = await fetch('http://localhost:3001/api/result');
@@ -262,6 +274,7 @@ export default function GlobalAutoPilot() {
           }
         } catch(e) { }
       }
+      if (shouldStop()) break;
 
       // ─── STEP 6: Save Video URL to DB ────────────────────────────────
       if (finalVideoUrl) {
