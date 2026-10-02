@@ -19,7 +19,6 @@ export async function POST(req: Request) {
     if (used_model !== undefined) updates.used_model = used_model;
     if (video_url !== undefined) updates.video_url = video_url;
     if (image_url !== undefined) updates.image_url = image_url;
-    updates.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
       .from('auto_products')
