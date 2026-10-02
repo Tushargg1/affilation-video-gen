@@ -9,12 +9,14 @@ const supabase = createClient(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { id, video_created, is_posted, is_affiliated } = body;
+    const { id, video_created, is_posted, is_affiliated, social_link_1, social_link_2 } = body;
     
     const updatePayload: any = {};
     if (video_created !== undefined) updatePayload.video_created = video_created ? 1 : 0;
     if (is_posted !== undefined) updatePayload.is_posted = is_posted;
     if (is_affiliated !== undefined) updatePayload.is_affiliated = is_affiliated;
+    if (social_link_1 !== undefined) updatePayload.image_url = social_link_1;
+    if (social_link_2 !== undefined) updatePayload.video_url = social_link_2;
     
     const { error } = await supabase
       .from('auto_products')
