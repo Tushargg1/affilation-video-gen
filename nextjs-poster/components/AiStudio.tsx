@@ -50,6 +50,53 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   
   const [isAutomating, setIsAutomating] = useState(false);
   const [automationLog, setAutomationLog] = useState<string[]>([]);
+  
+  // Auto-pilot background scheduler
+  const [isAutoPilot, setIsAutoPilot] = useState(false);
+  const autoPilotRef = useRef(false);
+
+  // Load autopilot state from local storage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('digen_autopilot');
+    if (saved === 'true') {
+      setIsAutoPilot(true);
+      autoPilotRef.current = true;
+    }
+  }, []);
+
+  const toggleAutoPilot = () => {
+    const newState = !isAutoPilot;
+    setIsAutoPilot(newState);
+    autoPilotRef.current = newState;
+    localStorage.setItem('digen_autopilot', newState.toString());
+  };
+
+  // The Heartbeat: Checks every 5 minutes if we need to generate more products for today
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    const checkHeartbeat = () => {
+      if (autoPilotRef.current && !isAutomating) {
+        runDailyAutomation();
+      }
+    };
+
+    // If autopilot is enabled and we aren't automating right now, do an immediate check
+    if (isAutoPilot && !isAutomating) {
+      // Small delay to allow initial products to load from DB
+      const timeout = setTimeout(() => {
+        checkHeartbeat();
+      }, 5000);
+      
+      // Then set up the recurring 5-minute heartbeat
+      interval = setInterval(checkHeartbeat, 5 * 60 * 1000);
+      
+      return () => {
+        clearTimeout(timeout);
+        clearInterval(interval);
+      };
+    }
+  }, [isAutoPilot, isAutomating, products.length]);
 
   const categories = Array.from(new Set(products.map(p => p.category || 'Uncategorized').filter(Boolean)));
   const categoryProducts = products.filter(p => (p.category || 'Uncategorized') === selectedCategory);
@@ -249,15 +296,31 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     const log = (msg: string) => setAutomationLog(prev => [...prev, msg]);
 
     try {
-      // 1. Find up to 4 products that don't have video_url
-      const pendingProducts = products.filter(p => !p.video_url).slice(0, 4);
-      if (pendingProducts.length === 0) {
-        log("No pending products to process today!");
+      // 1. Calculate how many products were already generated today
+      const todayString = new Date().toDateString();
+      const todayGeneratedCount = products.filter(p => 
+        p.video_url && p.updated_at && new Date(p.updated_at).toDateString() === todayString
+      ).length;
+
+      const dailyLimit = schedulerConfig.daily_target || 4;
+      const remainingQuota = dailyLimit - todayGeneratedCount;
+
+      if (remainingQuota <= 0) {
+        log(`✅ Daily limit reached! (${todayGeneratedCount}/${dailyLimit} generated today).`);
+        log(`Automation will sleep until tomorrow.`);
         setIsAutomating(false);
         return;
       }
 
-      log(`Found ${pendingProducts.length} products to automate!`);
+      // 2. Find pending products up to the remaining quota
+      const pendingProducts = products.filter(p => !p.video_url).slice(0, remainingQuota);
+      if (pendingProducts.length === 0) {
+        log("No pending products to process today! Please add more products.");
+        setIsAutomating(false);
+        return;
+      }
+
+      log(`Found ${pendingProducts.length} pending products. Daily Quota remaining: ${remainingQuota}. Starting generation...`);
 
       for (const prod of pendingProducts) {
         log(`\n--- Starting Product: ${prod.title} ---`);
@@ -447,20 +510,36 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
           </h2>
           <p className="text-slate-500 mt-2 font-medium">Generate cinematic prompts and automate video creation</p>
         </div>
-        <button 
-          onClick={runDailyAutomation}
-          disabled={isAutomating}
-          className="relative inline-flex h-12 overflow-hidden rounded-full p-[2px] focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-50 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-95"
-        >
-          <span className="absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#E2CBFF_0%,#393BB2_50%,#E2CBFF_100%)]" />
-          <span className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-slate-950 px-6 py-1 text-sm font-bold text-white backdrop-blur-3xl gap-2">
-            {isAutomating ? (
-              <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Running Automation...</>
-            ) : (
-              <>🤖 Start Daily Automation</>
-            )}
-          </span>
-        </button>
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className="flex items-center gap-3 bg-white/50 backdrop-blur-sm px-4 py-2.5 rounded-full border border-slate-200/60 shadow-sm">
+            <div className="flex flex-col items-end">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Auto-Pilot</span>
+              <span className="text-[10px] text-slate-500 font-medium">Runs in background</span>
+            </div>
+            <button 
+              type="button"
+              onClick={toggleAutoPilot}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${isAutoPilot ? 'bg-emerald-500' : 'bg-slate-300'}`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isAutoPilot ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          <button 
+            onClick={runDailyAutomation}
+            disabled={isAutomating}
+            className="relative inline-flex h-12 overflow-hidden rounded-full p-[2px] focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-50 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-95"
+          >
+            <span className="absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#E2CBFF_0%,#393BB2_50%,#E2CBFF_100%)]" />
+            <span className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-slate-950 px-6 py-1 text-sm font-bold text-white backdrop-blur-3xl gap-2">
+              {isAutomating ? (
+                <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Running Automation...</>
+              ) : (
+                <>🤖 Start Daily Automation</>
+              )}
+            </span>
+          </button>
+        </div>
       </div>
       
       {automationLog.length > 0 && (
