@@ -337,14 +337,14 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
           
           let base64ToUpload = data.result.mediaBase64;
           
-          if (data.result.isVideoDownload) {
-             setStatus({ type: 'info', message: 'Video generation finished! Waiting for local download to complete (up to 2 minutes)...' });
+          if (data.result.isNativeDownload && !base64ToUpload) {
+             setStatus({ type: 'info', message: `${type} generation finished! Waiting for local download to complete (up to 2 minutes)...` });
              
              // Wait up to 120 seconds for the file to finish downloading and appear in the Downloads folder
              for (let j = 0; j < 24; j++) {
                 await new Promise(r => setTimeout(r, 5000));
                 try {
-                   const vidRes = await fetch('http://localhost:3001/api/latest-video');
+                   const vidRes = await fetch('http://localhost:3001/api/latest-media');
                    const vidData = await vidRes.json();
                    if (vidData.success && vidData.base64) {
                        base64ToUpload = vidData.base64;
@@ -354,7 +354,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
              }
              
              if (!base64ToUpload) {
-                setStatus({ type: 'error', message: 'Failed to locate downloaded video in local folder.' });
+                setStatus({ type: 'error', message: `Failed to locate downloaded ${type} in local folder.` });
                 break;
              }
           }

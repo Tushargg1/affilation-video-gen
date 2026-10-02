@@ -241,6 +241,21 @@ export default function GlobalAutoPilot() {
                   break;
                 }
                 generatedImageBase64 = data.result.mediaBase64;
+                if (data.result.isNativeDownload && !generatedImageBase64) {
+                   writeLog(`Image generation finished! Waiting for local download to complete (up to 2 minutes)...`);
+                   for (let j = 0; j < 24; j++) {
+                      await new Promise(r => setTimeout(r, 5000));
+                      try {
+                         const mediaRes = await fetch('http://localhost:3001/api/latest-media');
+                         const mediaData = await mediaRes.json();
+                         if (mediaData.success && mediaData.base64) {
+                             generatedImageBase64 = mediaData.base64;
+                             break;
+                         }
+                      } catch(e) {}
+                   }
+                }
+                
                 if (generatedImageBase64) {
                   writeLog('✅ Image generated successfully!');
                 }
@@ -353,12 +368,12 @@ export default function GlobalAutoPilot() {
                 
                 finalVideoUrl = data.result.mediaBase64;
                 
-                if (data.result.isVideoDownload) {
+                if (data.result.isNativeDownload && !finalVideoUrl) {
                    writeLog('Video generation finished! Waiting for local download to complete...');
                    for (let j = 0; j < 24; j++) {
                       await new Promise(r => setTimeout(r, 5000));
                       try {
-                         const vidRes = await fetch('http://localhost:3001/api/latest-video');
+                         const vidRes = await fetch('http://localhost:3001/api/latest-media');
                          const vidData = await vidRes.json();
                          if (vidData.success && vidData.base64) {
                              finalVideoUrl = vidData.base64;
