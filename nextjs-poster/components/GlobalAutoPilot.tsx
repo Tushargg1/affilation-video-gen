@@ -246,7 +246,7 @@ export default function GlobalAutoPilot() {
                    for (let j = 0; j < 24; j++) {
                       await new Promise(r => setTimeout(r, 5000));
                       try {
-                         const mediaRes = await fetch('http://localhost:3001/api/latest-media');
+                         const mediaRes = await fetch('http://localhost:3001/api/latest-media?type=image');
                          const mediaData = await mediaRes.json();
                          if (mediaData.success && mediaData.base64) {
                              generatedImageBase64 = mediaData.base64;
@@ -373,7 +373,7 @@ export default function GlobalAutoPilot() {
                    for (let j = 0; j < 24; j++) {
                       await new Promise(r => setTimeout(r, 5000));
                       try {
-                         const vidRes = await fetch('http://localhost:3001/api/latest-media');
+                         const vidRes = await fetch('http://localhost:3001/api/latest-media?type=video');
                          const vidData = await vidRes.json();
                          if (vidData.success && vidData.base64) {
                              finalVideoUrl = vidData.base64;

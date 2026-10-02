@@ -344,7 +344,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
              for (let j = 0; j < 24; j++) {
                 await new Promise(r => setTimeout(r, 5000));
                 try {
-                   const vidRes = await fetch('http://localhost:3001/api/latest-media');
+                   const vidRes = await fetch(`http://localhost:3001/api/latest-media?type=${type}`);
                    const vidData = await vidRes.json();
                    if (vidData.success && vidData.base64) {
                        base64ToUpload = vidData.base64;
