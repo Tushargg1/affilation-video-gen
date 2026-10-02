@@ -55,6 +55,22 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   const [isAutomating, setIsAutomating] = useState(false);
   const [automationLog, setAutomationLog] = useState<string[]>([]);
   
+  // Sync UI state with GlobalAutoPilot
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const running = localStorage.getItem('digen_is_running') === 'true';
+      setIsAutomating(running);
+      
+      const logs = localStorage.getItem('digen_logs');
+      if (logs) {
+        try {
+          setAutomationLog(JSON.parse(logs));
+        } catch(e) {}
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  
   // Auto-pilot background scheduler
   const [isAutoPilot, setIsAutoPilot] = useState(false);
   const autoPilotRef = useRef(false);
@@ -289,216 +305,10 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   };
 
   const runDailyAutomation = async () => {
+    // Tell the GlobalAutoPilot to wake up and run immediately
+    localStorage.setItem('digen_force_run', 'true');
+    localStorage.setItem('digen_is_running', 'true'); // optimistic UI update
     setIsAutomating(true);
-    setAutomationLog([]);
-    const log = (msg: string) => setAutomationLog(prev => [...prev, msg]);
-
-    try {
-      // 1. Calculate how many products were already generated today
-      const todayString = new Date().toDateString();
-      const todayGeneratedCount = products.filter(p => 
-        p.video_url && p.updated_at && new Date(p.updated_at).toDateString() === todayString
-      ).length;
-
-      const dailyLimit = schedulerConfig.daily_target || 4;
-      const remainingQuota = dailyLimit - todayGeneratedCount;
-
-      if (remainingQuota <= 0) {
-        log(`✅ Daily limit reached! (${todayGeneratedCount}/${dailyLimit} generated today).`);
-        log(`Automation will sleep until tomorrow.`);
-        setIsAutomating(false);
-        return;
-      }
-
-      // 2. Find pending products up to the remaining quota
-      // Restrict automation strictly to the currently selected category in the UI and sort them by our chosen strategy!
-      const sortedQueue = getSortedPendingProducts(selectedCategory || 'Uncategorized', selectionStrategy);
-
-      const pendingProducts = sortedQueue.slice(0, remainingQuota);
-      if (pendingProducts.length === 0) {
-        log(selectedCategory 
-          ? `No pending products to process in category: ${selectedCategory}!`
-          : "No pending products to process today! Please add more products.");
-        setIsAutomating(false);
-        return;
-      }
-
-      log(`Found ${pendingProducts.length} pending products in ${selectedCategory || 'all categories'}. Daily Quota remaining: ${remainingQuota}. Starting generation...`);
-
-      for (const prod of pendingProducts) {
-        log(`\n--- Starting Product: ${prod.title} ---`);
-        
-        let imgPrompt = prod.image_prompt;
-        let vidPrompt = prod.video_prompt;
-        
-        if (!imgPrompt || !vidPrompt) {
-          const imgPromptText = schedulerConfig.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting). Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography. Return ONLY the final prompt text.`;
-          
-          const vidPromptText = schedulerConfig.base_video_prompt || `Write a highly detailed text-to-video prompt to create a stunning, high-converting product showcase video. The video must be exactly 10 seconds long. Focus on smooth, premium camera movements (e.g., slow cinematic pan, dynamic orbital shot, or elegant zoom). Describe the lighting as professional and cinematic. Highlight the product's textures and aesthetic appeal. Include keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed. Return ONLY the final prompt text.`;
-
-          // 1. Generate Image Prompt
-          const imgData = await callGeminiWithFallback(
-            imgPromptText, 
-            prod.image_url, 
-            prod.model_photo_url || localStorage.getItem('global_model_photo'), 
-            (msg) => log(`[Image Prompt] ${msg}`)
-          );
-          imgPrompt = imgData.text;
-
-          // 2. Short delay before Video Prompt to avoid hitting RPM limit
-          log('Waiting 8 seconds before generating Video Prompt to respect API limits...');
-          await new Promise(r => setTimeout(r, 8000));
-
-          // 3. Generate Video Prompt
-          const vidData = await callGeminiWithFallback(
-            vidPromptText, 
-            prod.image_url, 
-            null, // No model photo for video prompt generation
-            (msg) => log(`[Video Prompt] ${msg}`)
-          );
-          vidPrompt = vidData.text;
-          
-          // Save to DB
-          await fetch('/api/db/products/update-prompt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              id: prod.id, 
-              image_prompt: imgPrompt, 
-              video_prompt: vidPrompt,
-              used_model: imgData.usedModel || 'gemini-3.8-flash'
-            })
-          });
-        }
-
-        // Convert Product Photo URL to Base64 (for the extension)
-        log('Converting product image to Base64...');
-        let productImgBase64 = null;
-        if (prod.image_url) {
-          try {
-            const res = await fetch(prod.image_url);
-            const blob = await res.blob();
-            productImgBase64 = await new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result);
-              reader.readAsDataURL(blob);
-            });
-          } catch(e) {
-            log('Warning: Failed to fetch image_url directly (CORS?). Proceeding anyway.');
-          }
-        }
-
-        // CLEAR any old result from the bridge first
-        try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
-
-        // Send IMAGE job to extension
-        log('Sending Image Job to extension...');
-        try {
-          await fetch('http://localhost:3001/api/job', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imagePrompt: imgPrompt, videoPrompt: '', imageBase64: productImgBase64 })
-          });
-        } catch(e) {
-          log('❌ Bridge server offline! Make sure node server.js is running on port 3001.');
-          break;
-        }
-
-        // Poll for Image Job result
-        log('Waiting for Image Generation... (Takes a few minutes)');
-        let finalImageBase64 = null;
-        while (true) {
-          await new Promise(r => setTimeout(r, 5000));
-          try {
-            const res = await fetch('http://localhost:3001/api/result');
-            if (res.ok) {
-              const data = await res.json();
-              if (data.hasResult) {
-                log('✅ Image generation complete!');
-                finalImageBase64 = data.result.mediaBase64;
-                break;
-              }
-            }
-          } catch(e) {
-            // Ignore polling errors
-          }
-        }
-
-        if (!finalImageBase64) {
-          log('❌ Failed to get image from extension! Skipping product.');
-          continue;
-        }
-
-        // CLEAR any old result
-        try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
-
-        // Send VIDEO job to extension
-        log('Sending Video Job to extension...');
-        await fetch('http://localhost:3001/api/job', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imagePrompt: '', videoPrompt: vidPrompt, imageBase64: finalImageBase64 })
-        });
-
-        // Poll for Video Job result
-        log('Waiting for Video Generation... (Takes a few minutes)');
-        let finalVideoBase64 = null;
-        while (true) {
-          await new Promise(r => setTimeout(r, 5000));
-          try {
-            const res = await fetch('http://localhost:3001/api/result');
-            if (res.ok) {
-              const data = await res.json();
-              if (data.hasResult) {
-                log('✅ Video generation complete!');
-                finalVideoBase64 = data.result.mediaBase64;
-                break;
-              }
-            }
-          } catch(e) {}
-        }
-
-        if (!finalVideoBase64) {
-          log('❌ Failed to get video from extension! Skipping product.');
-          continue;
-        }
-
-        // Upload Video to Vercel Blob and save to DB
-        log('Uploading Video to cloud storage...');
-        try {
-          const vRes = await fetch(finalVideoBase64);
-          const vBlob = await vRes.blob();
-          
-          // Determine extension from MIME type
-          const ext = vBlob.type.includes('image') ? 'jpg' : 'mp4';
-          const vFile = new File([vBlob], `product-${prod.id}-media.${ext}`, { type: vBlob.type });
-          
-          const newVideoBlob = await upload(vFile.name, vFile, {
-            access: 'public',
-            handleUploadUrl: '/api/upload'
-          });
-
-          log('Saving Video URL to Database...');
-          await fetch('/api/db/products/update-prompt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: prod.id, video_url: newVideoBlob.url })
-          });
-          
-          log(`🎉 Finished Product: ${prod.title}!`);
-        } catch(e: any) {
-          log(`❌ Failed to upload final media: ${e.message}`);
-        }
-
-        log('Waiting 15 seconds before processing the next product to avoid rate limits...');
-        await new Promise(r => setTimeout(r, 15000));
-      }
-      
-      log('\n✅ Daily Automation Complete! All products processed.');
-    } catch (e: any) {
-      log(`❌ Automation Error: ${e.message}`);
-    }
-    setIsAutomating(false);
   };
 
   // Statistics Calculations

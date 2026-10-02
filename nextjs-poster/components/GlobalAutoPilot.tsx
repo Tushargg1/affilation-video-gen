@@ -2,38 +2,51 @@
 
 import { useEffect, useRef } from 'react';
 
+// Shared helper to write logs to localStorage so the UI can display them
+const writeLog = (msg: string) => {
+  const currentLogs = JSON.parse(localStorage.getItem('digen_logs') || '[]');
+  currentLogs.push(msg);
+  // Keep only last 100 logs to avoid localStorage overflow
+  if (currentLogs.length > 100) currentLogs.shift();
+  localStorage.setItem('digen_logs', JSON.stringify(currentLogs));
+};
+
 export default function GlobalAutoPilot() {
   const isAutomatingRef = useRef(false);
 
   useEffect(() => {
-    // Check local storage immediately
-    const saved = localStorage.getItem('digen_autopilot');
-    if (saved !== 'true') return;
-
     let interval: NodeJS.Timeout;
 
     const checkHeartbeat = async () => {
-      // Re-check local storage every tick in case they turned it off in another tab/page
-      if (localStorage.getItem('digen_autopilot') !== 'true') return;
+      // Re-check local storage every tick
+      if (localStorage.getItem('digen_autopilot') !== 'true' && localStorage.getItem('digen_force_run') !== 'true') {
+        localStorage.setItem('digen_is_running', 'false');
+        return;
+      }
+      
       if (isAutomatingRef.current) return;
 
       isAutomatingRef.current = true;
+      localStorage.setItem('digen_is_running', 'true');
+      
       try {
         await runHeadlessAutomation();
-      } catch (e) {
-        console.error(e);
+      } catch (e: any) {
+        writeLog(`❌ Automation Error: ${e.message}`);
       } finally {
         isAutomatingRef.current = false;
+        localStorage.setItem('digen_is_running', 'false');
+        localStorage.setItem('digen_force_run', 'false');
       }
     };
 
     // Small delay to let the app hydrate
     const timeout = setTimeout(() => {
       checkHeartbeat();
-    }, 5000);
+    }, 2000);
 
-    // Heartbeat every 5 minutes
-    interval = setInterval(checkHeartbeat, 5 * 60 * 1000);
+    // Heartbeat every 5 seconds so it picks up manual triggers instantly
+    interval = setInterval(checkHeartbeat, 5000);
 
     return () => {
       clearTimeout(timeout);
@@ -59,25 +72,34 @@ export default function GlobalAutoPilot() {
     const dailyLimit = config.daily_target || 4;
     const remainingQuota = dailyLimit - todayGeneratedCount;
 
-    if (remainingQuota <= 0) return; // Daily limit reached
+    if (remainingQuota <= 0) {
+      writeLog(`✅ Daily limit reached! (${todayGeneratedCount}/${dailyLimit} generated today).`);
+      return;
+    }
 
     // Find pending products
     const savedCat = localStorage.getItem('ai_studio_category') || 'Uncategorized';
     let pendingProducts = products.filter((p: any) => (p.category || 'Uncategorized') === savedCat && (!p.image_prompt || !p.video_prompt));
     
     pendingProducts = pendingProducts.slice(0, remainingQuota);
-    if (pendingProducts.length === 0) return;
+    if (pendingProducts.length === 0) {
+      writeLog(`No pending products to process today!`);
+      return;
+    }
+
+    writeLog(`Found ${pendingProducts.length} pending products. Daily Quota remaining: ${remainingQuota}. Starting generation...`);
 
     for (const prod of pendingProducts) {
+      writeLog(`\n--- Starting Product: ${prod.title} ---`);
       let imgPrompt = prod.image_prompt;
       let vidPrompt = prod.video_prompt;
       
       if (!imgPrompt || !vidPrompt) {
-        const imgPromptText = config.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting). Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography. Return ONLY the final prompt text.`;
-        
-        const vidPromptText = config.base_video_prompt || `Write a highly detailed text-to-video prompt to create a stunning, high-converting product showcase video. The video must be exactly 10 seconds long. Focus on smooth, premium camera movements (e.g., slow cinematic pan, dynamic orbital shot, or elegant zoom). Describe the lighting as professional and cinematic. Highlight the product's textures and aesthetic appeal. Include keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed. Return ONLY the final prompt text.`;
+        const imgPromptText = config.base_image_prompt || `Write a highly detailed, professional text-to-image prompt... Return ONLY the final prompt text.`;
+        const vidPromptText = config.base_video_prompt || `Write a highly detailed text-to-video prompt... Return ONLY the final prompt text.`;
 
         // 1. Generate Image Prompt
+        writeLog(`[Image Prompt] Generating via 3.8-flash...`);
         const imgRes = await fetch('/api/gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -89,11 +111,18 @@ export default function GlobalAutoPilot() {
           })
         });
         const imgData = await imgRes.json();
+        
+        if (!imgRes.ok) {
+           writeLog(`[Image Prompt] Model 3.8-flash failed: ${imgData.error}. Skipping...`);
+           continue;
+        }
         imgPrompt = imgData.text || imgPrompt;
 
+        writeLog('Waiting 8 seconds before generating Video Prompt...');
         await new Promise(r => setTimeout(r, 8000));
 
         // 2. Generate Video Prompt
+        writeLog(`[Video Prompt] Generating via 3.8-flash...`);
         const vidRes = await fetch('/api/gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -105,6 +134,10 @@ export default function GlobalAutoPilot() {
           })
         });
         const vidData = await vidRes.json();
+        if (!vidRes.ok) {
+           writeLog(`[Video Prompt] Model 3.8-flash failed: ${vidData.error}. Skipping...`);
+           continue;
+        }
         vidPrompt = vidData.text || vidPrompt;
         
         // Save to DB
@@ -121,6 +154,7 @@ export default function GlobalAutoPilot() {
       }
 
       // Convert Product Photo URL to Base64
+      writeLog('Converting product image to Base64...');
       let productImgBase64 = null;
       if (prod.image_url) {
         try {
@@ -138,6 +172,7 @@ export default function GlobalAutoPilot() {
       try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
 
       // Send IMAGE job to extension
+      writeLog('Sending Image Job to extension...');
       try {
         await fetch('http://localhost:3001/api/job', {
           method: 'POST',
@@ -145,10 +180,12 @@ export default function GlobalAutoPilot() {
           body: JSON.stringify({ imagePrompt: imgPrompt, videoPrompt: '', imageBase64: productImgBase64 })
         });
       } catch(e) {
+        writeLog('❌ Bridge server offline! Make sure node server.js is running on port 3001.');
         break; // Bridge offline
       }
 
       // Poll for Image Job result
+      writeLog('Waiting for Image Generation... (Takes a few minutes)');
       let finalImageBase64 = null;
       while (true) {
         await new Promise(r => setTimeout(r, 5000));
@@ -157,6 +194,7 @@ export default function GlobalAutoPilot() {
           if (res.ok) {
             const data = await res.json();
             if (data.hasResult) {
+              writeLog('✅ Image generation complete!');
               finalImageBase64 = data.result.mediaBase64;
               break;
             }
@@ -164,7 +202,10 @@ export default function GlobalAutoPilot() {
         } catch(e) { }
       }
 
+      if (!finalImageBase64) continue;
+
       // Send VIDEO job to extension
+      writeLog('Sending Video Job to extension...');
       let videoBase64Array = [];
       if (finalImageBase64) videoBase64Array.push(finalImageBase64);
       if (productImgBase64) videoBase64Array.push(productImgBase64);
@@ -178,10 +219,12 @@ export default function GlobalAutoPilot() {
           body: JSON.stringify({ imagePrompt: '', videoPrompt: vidPrompt, imageBase64: videoBase64Array })
         });
       } catch(e) {
+        writeLog('❌ Bridge server offline!');
         break;
       }
 
       // Poll for Video Job result
+      writeLog('Waiting for Video Generation... (Takes a few minutes)');
       let finalVideoUrl = null;
       while (true) {
         await new Promise(r => setTimeout(r, 5000));
@@ -190,6 +233,7 @@ export default function GlobalAutoPilot() {
           if (res.ok) {
             const data = await res.json();
             if (data.hasResult) {
+              writeLog('✅ Video generation complete!');
               finalVideoUrl = data.result.mediaBase64; // actually Vercel Blob URL from extension
               break;
             }
@@ -199,16 +243,20 @@ export default function GlobalAutoPilot() {
 
       // Save Video URL and Mark Completed
       if (finalVideoUrl) {
+        writeLog('Saving Video URL to Database...');
         await fetch('/api/db/products/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: prod.id, video_url: finalVideoUrl, video_created: true })
         });
+        writeLog(`🎉 Finished Product: ${prod.title}!`);
       }
 
       // Delay before next product
+      writeLog('Waiting 15 seconds before processing the next product...');
       await new Promise(r => setTimeout(r, 15000));
     }
+    writeLog('\n✅ Daily Automation Complete! All products processed.');
   };
 
   return null; // This component is invisible!
