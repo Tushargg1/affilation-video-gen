@@ -199,74 +199,79 @@ export default function GlobalAutoPilot() {
       }
 
       // ─── STEP 3: Send IMAGE PROMPT to extension → generate actual image ───
-      if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
-      try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
-      writeLog('Sending Image Prompt to extension to generate the image...');
-      try {
-        await fetch('http://localhost:3001/api/job', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            imagePrompt: imgPrompt, 
-            videoPrompt: '', 
-            imageBase64: [productImgBase64, modelImgBase64].filter(Boolean) 
-          })
-        });
-      } catch(e) {
-        writeLog('❌ Bridge server offline! Make sure node server.js is running on port 3001.');
-        break;
-      }
-
-      // Poll for generated image
-      writeLog('Waiting for Image to be generated... (Takes a few minutes)');
       let generatedImageBase64: string | null = null;
-      while (true) {
-        // Keep the lock alive while waiting
-        localStorage.setItem('digen_lock_timestamp', Date.now().toString());
-        
+      if (!prod.downloaded_image_path) {
         if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
-        await new Promise(r => setTimeout(r, 5000));
+        try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
+        writeLog('Sending Image Prompt to extension to generate the image...');
         try {
-          const res = await fetch('http://localhost:3001/api/result');
-          if (res.ok) {
-            const data = await res.json();
-            if (data.hasResult) {
-              generatedImageBase64 = data.result.mediaBase64;
-              writeLog('✅ Image generated successfully!');
-              break;
-            }
-          }
-        } catch(e) { }
-      }
-      if (shouldStop()) break;
-
-      if (!generatedImageBase64) {
-        writeLog('❌ Failed to get generated image. Skipping to next product.');
-        continue;
-      }
-
-      writeLog('Uploading generated image to Vercel Cloud Storage...');
-      try {
-        const uploadRes = await fetch('/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ base64: generatedImageBase64 })
-        });
-        const uploadData = await uploadRes.json();
-        if (uploadData.url) {
-          writeLog('✅ Image uploaded! Saving URL to database...');
-          await fetch('/api/db/products/update', {
+          await fetch('http://localhost:3001/api/job', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: prod.id, social_link_1: uploadData.url })
+            body: JSON.stringify({ 
+              imagePrompt: imgPrompt, 
+              videoPrompt: '', 
+              imageBase64: [productImgBase64, modelImgBase64].filter(Boolean) 
+            })
           });
+        } catch(e) {
+          writeLog('❌ Bridge server offline! Make sure node server.js is running on port 3001.');
+          break;
         }
-      } catch (e) {
-        writeLog('❌ Failed to upload image to Vercel. Continuing anyway...');
-      }
 
-      // Keep lock alive before video prompt
-      localStorage.setItem('digen_lock_timestamp', Date.now().toString());
+        // Poll for generated image
+        writeLog('Waiting for Image to be generated... (Takes a few minutes)');
+        while (true) {
+          // Keep the lock alive while waiting
+          localStorage.setItem('digen_lock_timestamp', Date.now().toString());
+          
+          if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
+          await new Promise(r => setTimeout(r, 5000));
+          try {
+            const res = await fetch('http://localhost:3001/api/result');
+            if (res.ok) {
+              const data = await res.json();
+              if (data.hasResult) {
+                generatedImageBase64 = data.result.mediaBase64;
+                writeLog('✅ Image generated successfully!');
+                break;
+              }
+            }
+          } catch(e) { }
+        }
+        if (shouldStop()) break;
+
+        if (!generatedImageBase64) {
+          writeLog('❌ Failed to get generated image. Skipping to next product.');
+          continue;
+        }
+
+        writeLog('Uploading generated image to Vercel Cloud Storage...');
+        try {
+          const uploadRes = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64: generatedImageBase64 })
+          });
+          const uploadData = await uploadRes.json();
+          if (uploadData.url) {
+            writeLog('✅ Image uploaded! Saving URL to database...');
+            prod.downloaded_image_path = uploadData.url; // Update local state for next steps
+            await fetch('/api/db/products/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: prod.id, social_link_1: uploadData.url })
+            });
+          }
+        } catch (e) {
+          writeLog('❌ Failed to upload image to Vercel. Continuing anyway...');
+        }
+
+        // Keep lock alive before video prompt
+        localStorage.setItem('digen_lock_timestamp', Date.now().toString());
+      } else {
+        writeLog(`[Image Generation] Image already exists in database, skipping generation.`);
+      }
 
       // ─── STEP 4: Use the GENERATED IMAGE to create Video Prompt text ──
       if (!vidPrompt) {
@@ -293,64 +298,75 @@ export default function GlobalAutoPilot() {
       }
 
       // ─── STEP 5: Send VIDEO PROMPT + generated image to extension → generate video ───
-      if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
-      try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
-      writeLog('Sending Video Prompt + generated image to extension to create the video...');
-      try {
-        // Pass the generated image as context for the video
-        const videoInputImages = [generatedImageBase64, productImgBase64].filter(Boolean);
-        await fetch('http://localhost:3001/api/job', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imagePrompt: '', videoPrompt: vidPrompt, imageBase64: videoInputImages })
-        });
-      } catch(e) {
-        writeLog('❌ Bridge server offline!');
-        break;
-      }
-
-      // Poll for generated video
-      writeLog('Waiting for Video to be generated... (Takes a few minutes)');
-      let finalVideoUrl: string | null = null;
-      while (true) {
+      if (!prod.downloaded_video_path) {
         if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
-        await new Promise(r => setTimeout(r, 5000));
-        try {
-          const res = await fetch('http://localhost:3001/api/result');
-          if (res.ok) {
-            const data = await res.json();
-            if (data.hasResult) {
-              finalVideoUrl = data.result.mediaBase64;
-              writeLog('✅ Video generated successfully!');
-              break;
-            }
-          }
-        } catch(e) { }
-      }
-      if (shouldStop()) break;
+        try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
+        writeLog('Sending Video Prompt + generated image to extension to create the video...');
+        
+        // If we skipped image generation because it was already generated, we need to fetch its base64 again to send as context!
+        let videoReferenceBase64 = generatedImageBase64;
+        if (!videoReferenceBase64 && prod.downloaded_image_path) {
+          videoReferenceBase64 = await fetchBase64(prod.downloaded_image_path);
+        }
 
-      // ─── STEP 6: Save Video URL to DB ────────────────────────────────
-      if (finalVideoUrl) {
-        writeLog('Uploading generated video to Vercel Cloud Storage...');
         try {
-          const uploadRes = await fetch('/api/upload', {
+          const videoInputImages = [videoReferenceBase64, productImgBase64].filter(Boolean);
+          await fetch('http://localhost:3001/api/job', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ base64: finalVideoUrl })
+            body: JSON.stringify({ imagePrompt: '', videoPrompt: vidPrompt, imageBase64: videoInputImages })
           });
-          const uploadData = await uploadRes.json();
-          if (uploadData.url) {
-            writeLog('Saving Video URL to Database...');
-            await fetch('/api/db/products/update', {
+        } catch(e) {
+          writeLog('❌ Bridge server offline!');
+          break;
+        }
+
+        // Poll for generated video
+        writeLog('Waiting for Video to be generated... (Takes a few minutes)');
+        let finalVideoUrl: string | null = null;
+        while (true) {
+          if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
+          await new Promise(r => setTimeout(r, 5000));
+          try {
+            const res = await fetch('http://localhost:3001/api/result');
+            if (res.ok) {
+              const data = await res.json();
+              if (data.hasResult) {
+                finalVideoUrl = data.result.mediaBase64;
+                writeLog('✅ Video generated successfully!');
+                break;
+              }
+            }
+          } catch(e) { }
+        }
+        if (shouldStop()) break;
+
+        // ─── STEP 6: Save Video URL to DB ────────────────────────────────
+        if (finalVideoUrl) {
+          writeLog('Uploading generated video to Vercel Cloud Storage...');
+          try {
+            const uploadRes = await fetch('/api/upload', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: prod.id, social_link_2: uploadData.url, video_created: true })
+              body: JSON.stringify({ base64: finalVideoUrl, isVideo: true })
             });
-            writeLog(`🎉 Finished Product: ${prod.title}!`);
+            const uploadData = await uploadRes.json();
+            if (uploadData.url) {
+              writeLog('Saving Video URL to Database...');
+              prod.downloaded_video_path = uploadData.url;
+              await fetch('/api/db/products/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: prod.id, social_link_2: uploadData.url, video_created: true })
+              });
+              writeLog(`🎉 Finished Product: ${prod.title}!`);
+            }
+          } catch (e) {
+              writeLog('❌ Failed to upload video to Vercel.');
           }
-        } catch (e) {
-            writeLog('❌ Failed to upload video to Vercel.');
         }
+      } else {
+        writeLog(`[Video Generation] Video already exists in database, skipping generation.`);
       }
 
       writeLog('Waiting 15 seconds before processing the next product...');

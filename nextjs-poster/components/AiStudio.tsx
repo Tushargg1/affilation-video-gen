@@ -237,8 +237,8 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       } catch(e) { return null; }
     };
 
-    // Priority 1: Needs Video (has video prompt, no video created)
-    const needsVideo = products.find((p: any) => p.image_prompt && p.video_prompt && p.video_created !== 1);
+    // Priority 1: Needs Video (has video prompt, but no video generated yet)
+    const needsVideo = products.find((p: any) => p.video_prompt && !p.downloaded_video_path);
     
     if (needsVideo) {
       setSelectedProductId(needsVideo.id);
@@ -272,8 +272,8 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       return;
     }
 
-    // Priority 2: Needs Image (has image prompt, no video prompt)
-    const needsImage = products.find((p: any) => p.image_prompt && !p.video_prompt);
+    // Priority 2: Needs Image (has image prompt, but no image generated yet)
+    const needsImage = products.find((p: any) => p.image_prompt && !p.downloaded_image_path);
     if (needsImage) {
       setSelectedProductId(needsImage.id);
       setStatus({ type: 'info', message: `Found product for Image generation: ${needsImage.title}` });
