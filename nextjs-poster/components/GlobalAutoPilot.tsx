@@ -350,9 +350,28 @@ export default function GlobalAutoPilot() {
                   writeLog(`❌ Extension reported an error: ${data.result.error || 'Unknown error'}`);
                   break;
                 }
+                
                 finalVideoUrl = data.result.mediaBase64;
+                
+                if (data.result.isVideoDownload) {
+                   writeLog('Video generation finished! Waiting for local download to complete...');
+                   for (let j = 0; j < 24; j++) {
+                      await new Promise(r => setTimeout(r, 5000));
+                      try {
+                         const vidRes = await fetch('http://localhost:3001/api/latest-video');
+                         const vidData = await vidRes.json();
+                         if (vidData.success && vidData.base64) {
+                             finalVideoUrl = vidData.base64;
+                             break;
+                         }
+                      } catch(e) {}
+                   }
+                }
+                
                 if (finalVideoUrl) {
                   writeLog('✅ Video generated successfully!');
+                } else {
+                  writeLog('❌ Failed to retrieve generated video.');
                 }
                 break;
               }

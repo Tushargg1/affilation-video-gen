@@ -333,7 +333,36 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       try {
         const res = await fetch('http://localhost:3001/api/result');
         const data = await res.json();
-        if (data.hasResult && data.result && data.result.success && data.result.mediaBase64) {
+        if (data.hasResult && data.result && data.result.success) {
+          
+          let base64ToUpload = data.result.mediaBase64;
+          
+          if (data.result.isVideoDownload) {
+             setStatus({ type: 'info', message: 'Video generation finished! Waiting for local download to complete (up to 2 minutes)...' });
+             
+             // Wait up to 120 seconds for the file to finish downloading and appear in the Downloads folder
+             for (let j = 0; j < 24; j++) {
+                await new Promise(r => setTimeout(r, 5000));
+                try {
+                   const vidRes = await fetch('http://localhost:3001/api/latest-video');
+                   const vidData = await vidRes.json();
+                   if (vidData.success && vidData.base64) {
+                       base64ToUpload = vidData.base64;
+                       break;
+                   }
+                } catch(e) {}
+             }
+             
+             if (!base64ToUpload) {
+                setStatus({ type: 'error', message: 'Failed to locate downloaded video in local folder.' });
+                break;
+             }
+          }
+          
+          if (!base64ToUpload) {
+              setStatus({ type: 'error', message: 'No media extracted from extension.' });
+              break;
+          }
           
           setStatus({ type: 'info', message: `${type} received! Uploading to Vercel...` });
           
@@ -341,7 +370,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
           const uploadRes = await fetch('/api/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ base64: data.result.mediaBase64 })
+            body: JSON.stringify({ base64: base64ToUpload, isVideo: type === 'video' })
           });
           const uploadData = await uploadRes.json();
           
