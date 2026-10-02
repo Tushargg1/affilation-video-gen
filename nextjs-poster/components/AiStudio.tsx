@@ -132,7 +132,11 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     setIsLoading(true);
     setStatus({ type: 'info', message: 'Uploading model photo...' });
     try {
-      const newBlob = await upload(modelPhoto.name, modelPhoto, {
+      // Use a fixed name to ensure it overwrites the previous one on Vercel Blob
+      const ext = modelPhoto.name.split('.').pop() || 'png';
+      const fixedName = `global-model-photo.${ext}`;
+      
+      const newBlob = await upload(fixedName, modelPhoto, {
         access: 'public',
         handleUploadUrl: '/api/upload'
       });

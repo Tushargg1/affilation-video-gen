@@ -35,7 +35,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         return {
           allowedContentTypes: ['video/mp4', 'video/quicktime', 'video/x-m4v', 'image/jpeg', 'image/png', 'image/webp'],
           maximumSizeInBytes: 100 * 1024 * 1024, // 100MB
-          addRandomSuffix: true,
+          addRandomSuffix: false,
           allowOverwrite: true,
         };
       },
