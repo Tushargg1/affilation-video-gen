@@ -228,7 +228,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   };
 
   const callGeminiWithFallback = async (promptText: string, imageUrl: string, modelImageUrl: string | null, onStatus: (msg: string, type: 'info'|'warning') => void) => {
-    const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash-8b'];
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'];
     
     for (let i = 0; i < modelsToTry.length; i++) {
       const currentModel = modelsToTry[i];
@@ -278,7 +278,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
         (msg, type) => setStatus({ type, message: `[Image Prompt] ${msg}` })
       );
       setImagePrompt(imgData.text);
-      setUsedModel(imgData.usedModel || 'gemini-1.5-flash');
+      setUsedModel(imgData.usedModel || 'gemini-3.8-flash');
 
       // 2. Short delay before Video Prompt to avoid hitting RPM limit
       setStatus({ type: 'info', message: 'Waiting 2 seconds before generating Video Prompt to respect API limits...' });
@@ -301,7 +301,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
           id: selectedProduct.id, 
           image_prompt: imgData.text,
           video_prompt: vidData.text,
-          used_model: imgData.usedModel || 'gemini-1.5-flash'
+          used_model: imgData.usedModel || 'gemini-3.8-flash'
         })
       });
       
@@ -390,7 +390,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
               id: prod.id, 
               image_prompt: imgPrompt, 
               video_prompt: vidPrompt,
-              used_model: imgData.usedModel || 'gemini-1.5-flash'
+              used_model: imgData.usedModel || 'gemini-3.8-flash'
             })
           });
         }
