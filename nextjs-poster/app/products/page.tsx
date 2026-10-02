@@ -78,13 +78,13 @@ export default function ProductsGallery() {
     if (!confirm(`Delete the ${label} for this product? The automation will regenerate it next run.`)) return;
 
     // Optimistic UI update
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: null } : p));
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: "" } : p));
 
     try {
       await fetch('/api/db/products/update-prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, [field]: null })
+        body: JSON.stringify({ id, [field]: "" })
       });
     } catch(e) {
       console.error(e);
