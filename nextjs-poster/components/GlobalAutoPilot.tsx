@@ -11,6 +11,38 @@ const writeLog = (msg: string) => {
   localStorage.setItem('digen_logs', JSON.stringify(currentLogs));
 };
 
+const callGeminiWithInfiniteFallback = async (prompt: string, imageUrl: string, modelImageUrl: string | null, logPrefix: string) => {
+  const models = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'];
+  let attempt = 0;
+  
+  while (true) {
+    const currentModel = models[attempt % models.length];
+    writeLog(`${logPrefix} Generating via ${currentModel}...`);
+    
+    try {
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, imageUrl, modelImageUrl, model: currentModel })
+      });
+      
+      const data = await res.json();
+      if (res.ok && data.text) {
+        return { text: data.text, usedModel: currentModel };
+      } else {
+        const errorMsg = data.error || 'Unknown Error';
+        writeLog(`${logPrefix} Model ${currentModel} skipped due to error: ${errorMsg}. Trying ${models[(attempt + 1) % models.length]} next...`);
+      }
+    } catch (e: any) {
+      writeLog(`${logPrefix} Model ${currentModel} threw error: ${e.message}. Trying ${models[(attempt + 1) % models.length]} next...`);
+    }
+    
+    // Wait 4 seconds before trying the next model in the loop
+    await new Promise(r => setTimeout(r, 4000));
+    attempt++;
+  }
+};
+
 export default function GlobalAutoPilot() {
   const isAutomatingRef = useRef(false);
 
@@ -99,46 +131,25 @@ export default function GlobalAutoPilot() {
         const vidPromptText = config.base_video_prompt || `Write a highly detailed text-to-video prompt... Return ONLY the final prompt text.`;
 
         // 1. Generate Image Prompt
-        writeLog(`[Image Prompt] Generating via 3.8-flash...`);
-        const imgRes = await fetch('/api/gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: imgPromptText,
-            imageUrl: prod.image_url,
-            modelImageUrl: prod.model_photo_url || localStorage.getItem('global_model_photo'),
-            model: 'gemini-3.8-flash'
-          })
-        });
-        const imgData = await imgRes.json();
-        
-        if (!imgRes.ok) {
-           writeLog(`[Image Prompt] Model 3.8-flash failed: ${imgData.error}. Skipping...`);
-           continue;
-        }
-        imgPrompt = imgData.text || imgPrompt;
+        const imgData = await callGeminiWithInfiniteFallback(
+          imgPromptText, 
+          prod.image_url, 
+          prod.model_photo_url || localStorage.getItem('global_model_photo'), 
+          '[Image Prompt]'
+        );
+        imgPrompt = imgData.text;
 
         writeLog('Waiting 8 seconds before generating Video Prompt...');
         await new Promise(r => setTimeout(r, 8000));
 
         // 2. Generate Video Prompt
-        writeLog(`[Video Prompt] Generating via 3.8-flash...`);
-        const vidRes = await fetch('/api/gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: vidPromptText,
-            imageUrl: prod.image_url,
-            modelImageUrl: null,
-            model: 'gemini-3.8-flash'
-          })
-        });
-        const vidData = await vidRes.json();
-        if (!vidRes.ok) {
-           writeLog(`[Video Prompt] Model 3.8-flash failed: ${vidData.error}. Skipping...`);
-           continue;
-        }
-        vidPrompt = vidData.text || vidPrompt;
+        const vidData = await callGeminiWithInfiniteFallback(
+          vidPromptText, 
+          prod.image_url, 
+          null, 
+          '[Video Prompt]'
+        );
+        vidPrompt = vidData.text;
         
         // Save to DB
         await fetch('/api/db/products/update-prompt', {
