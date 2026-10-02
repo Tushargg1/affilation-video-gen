@@ -245,6 +245,26 @@ export default function GlobalAutoPilot() {
         continue;
       }
 
+      writeLog('Uploading generated image to Vercel Cloud Storage...');
+      try {
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64: generatedImageBase64 })
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadData.url) {
+          writeLog('✅ Image uploaded! Saving URL to database...');
+          await fetch('/api/db/products/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: prod.id, social_link_2: uploadData.url })
+          });
+        }
+      } catch (e) {
+        writeLog('❌ Failed to upload image to Vercel. Continuing anyway...');
+      }
+
       // Keep lock alive before video prompt
       localStorage.setItem('digen_lock_timestamp', Date.now().toString());
 
@@ -311,13 +331,26 @@ export default function GlobalAutoPilot() {
 
       // ─── STEP 6: Save Video URL to DB ────────────────────────────────
       if (finalVideoUrl) {
-        writeLog('Saving Video URL to Database...');
-        await fetch('/api/db/products/update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: prod.id, social_link_2: finalVideoUrl, video_created: true })
-        });
-        writeLog(`🎉 Finished Product: ${prod.title}!`);
+        writeLog('Uploading generated video to Vercel Cloud Storage...');
+        try {
+          const uploadRes = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64: finalVideoUrl })
+          });
+          const uploadData = await uploadRes.json();
+          if (uploadData.url) {
+            writeLog('Saving Video URL to Database...');
+            await fetch('/api/db/products/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: prod.id, social_link_2: uploadData.url, video_created: true })
+            });
+            writeLog(`🎉 Finished Product: ${prod.title}!`);
+          }
+        } catch (e) {
+            writeLog('❌ Failed to upload video to Vercel.');
+        }
       }
 
       writeLog('Waiting 15 seconds before processing the next product...');
