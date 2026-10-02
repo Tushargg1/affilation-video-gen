@@ -544,6 +544,84 @@ export default function Home() {
               </div>
             </div>
 
+          {/* History Column */}
+          <div className="lg:col-span-7 bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold text-slate-900">Social Media History</h3>
+                <button onClick={fetchHistory} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                </button>
+             </div>
+             
+             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+               {history.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4 py-12">
+                    <svg className="w-16 h-16 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    <p className="font-medium">No posts scheduled yet.</p>
+                  </div>
+               ) : (
+                  <div className="space-y-4">
+                     {history.map((post) => {
+                        const isPending = post.status === 'PENDING';
+                        const isCancelled = post.status === 'CANCELLED';
+                        const isIgProcessing = post.status === 'IG_PROCESSING';
+                        
+                        return (
+                          <div key={post.id} className="group flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                            <div className="flex flex-col mb-3 sm:mb-0">
+                              <span className="font-bold text-slate-800 text-lg truncate max-w-[200px] sm:max-w-xs" title={post.blobName}>{post.blobName}</span>
+                              <span className="text-sm text-slate-500 mt-1 flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                {new Date(post.scheduleTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                              </span>
+                              <div className="flex gap-2 mt-2">
+                                {post.platforms?.map((p: string) => {
+                                  const link = post.links?.[p.toLowerCase()];
+                                  return link ? (
+                                    <a key={p} href={link} target="_blank" rel="noreferrer" className="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 px-2 py-0.5 rounded-md shadow-sm transition-colors flex items-center gap-1">
+                                      {p} <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                    </a>
+                                  ) : (
+                                    <span key={p} className="text-xs font-semibold uppercase tracking-wider text-slate-400 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-sm">
+                                      {p}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                              <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm ${
+                                post.status === 'POSTED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                                isPending ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                isIgProcessing ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                                'bg-slate-200 text-slate-500 border border-slate-300'
+                              }`}>
+                                {isIgProcessing ? 'Processing IG' : post.status}
+                              </span>
+                              
+                              {isPending && (
+                                <button 
+                                  onClick={() => handleCancel(post.id)}
+                                  className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-2 rounded-lg transition-colors border border-red-100 shadow-sm"
+                                  title="Cancel Post"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                     })}
+                  </div>
+               )}
+             </div>
+          </div>
+        </div>
+
+        {/* Meesho Database Grid */}
+          <div className="lg:col-span-5 flex flex-col gap-8">
+
             <AiStudio products={products} schedulerConfig={schedulerConfig} />
 
             <div className="flex items-center justify-between mb-6 mt-10">
@@ -632,83 +710,151 @@ export default function Home() {
               </div>
             </div>
           </div>
+          </div>
 
-          {/* History Column */}
           <div className="lg:col-span-7 bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col">
-             <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-slate-900">Social Media History</h3>
-                <button onClick={fetchHistory} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                </button>
-             </div>
-             
-             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-               {history.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4 py-12">
-                    <svg className="w-16 h-16 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                    <p className="font-medium">No posts scheduled yet.</p>
-                  </div>
-               ) : (
-                  <div className="space-y-4">
-                     {history.map((post) => {
-                        const isPending = post.status === 'PENDING';
-                        const isCancelled = post.status === 'CANCELLED';
-                        const isIgProcessing = post.status === 'IG_PROCESSING';
-                        
-                        return (
-                          <div key={post.id} className="group flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                            <div className="flex flex-col mb-3 sm:mb-0">
-                              <span className="font-bold text-slate-800 text-lg truncate max-w-[200px] sm:max-w-xs" title={post.blobName}>{post.blobName}</span>
-                              <span className="text-sm text-slate-500 mt-1 flex items-center gap-2">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                {new Date(post.scheduleTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                              </span>
-                              <div className="flex gap-2 mt-2">
-                                {post.platforms?.map((p: string) => {
-                                  const link = post.links?.[p.toLowerCase()];
-                                  return link ? (
-                                    <a key={p} href={link} target="_blank" rel="noreferrer" className="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 px-2 py-0.5 rounded-md shadow-sm transition-colors flex items-center gap-1">
-                                      {p} <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                    </a>
-                                  ) : (
-                                    <span key={p} className="text-xs font-semibold uppercase tracking-wider text-slate-400 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-sm">
-                                      {p}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                              <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm ${
-                                post.status === 'POSTED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                                isPending ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                                isIgProcessing ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-                                'bg-slate-200 text-slate-500 border border-slate-300'
-                              }`}>
-                                {isIgProcessing ? 'Processing IG' : post.status}
-                              </span>
-                              
-                              {isPending && (
-                                <button 
-                                  onClick={() => handleCancel(post.id)}
-                                  className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-2 rounded-lg transition-colors border border-red-100 shadow-sm"
-                                  title="Cancel Post"
-                                >
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )
-                     })}
-                  </div>
-               )}
-             </div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Product Database ({products.length} Total)</h2>
+              <button 
+                onClick={() => fetchMeeshoData(cfUrl)} 
+                className="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-semibold rounded-xl text-sm transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                Refresh Data
+              </button>
+            </div>
+            
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <input 
+                type="text" 
+                placeholder="Search products..." 
+                className="flex-1 px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              <select className="px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                <option value="newest">Newest First</option>
+                <option value="priceAsc">Price: Low to High</option>
+                <option value="priceDesc">Price: High to Low</option>
+                <option value="commDesc">Commission: High to Low</option>
+              </select>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-6">
+              {categories.map(cat => (
+                <div key={cat} className="flex items-center shadow-sm rounded-full">
+                  <button 
+                    className={`px-4 py-1.5 ${cat !== 'All' ? 'rounded-l-full' : 'rounded-full'} text-sm font-semibold transition-colors border ${selectedCategory === cat ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                    onClick={() => setSelectedCategory(cat)}
+                  >
+                    {cat}
+                  </button>
+                  {cat !== 'All' && (
+                    <button
+                      onClick={() => deleteCategory(cat)}
+                      className={`px-2.5 py-1.5 rounded-r-full text-sm font-bold border-y border-r transition-colors ${selectedCategory === cat ? 'bg-indigo-700 text-red-300 border-indigo-700 hover:text-red-400' : 'bg-slate-100 text-red-400 border-slate-200 hover:bg-red-50 hover:text-red-500'}`}
+                      title={`Delete category: ${cat}`}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <label className="flex items-center gap-2 ml-auto cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={hideProcessed} 
+                  onChange={e => setHideProcessed(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600"
+                />
+                <span className="text-sm font-semibold text-slate-600">Hide Completed</span>
+              </label>
+            </div>
+
+            {/* Select All / Delete toolbar */}
+            {displayedProducts.length > 0 && (
+              <div className="flex items-center gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <input
+                  type="checkbox"
+                  checked={selectedProducts.size === displayedProducts.length && displayedProducts.length > 0}
+                  onChange={selectAll}
+                  className="w-4 h-4 text-indigo-600 cursor-pointer"
+                />
+                <span className="text-sm text-slate-600 flex-1">
+                  {selectedProducts.size > 0 ? `${selectedProducts.size} selected` : 'Select All'}
+                </span>
+                {selectedProducts.size > 0 && (
+                  <button
+                    onClick={deleteSelected}
+                    className="px-4 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-1"
+                  >
+                    🗑 Delete ({selectedProducts.size})
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-[500px]">
+              {displayedProducts.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 py-12">
+                  <p className="font-medium">No products found. Enter CF URL or run extraction.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {displayedProducts.map((p: any) => (
+                    <div key={p.id} className={`flex justify-between items-center p-4 rounded-xl border transition-all ${selectedProducts.has(p.id) ? 'bg-indigo-50 border-indigo-300' : 'border-slate-100 bg-slate-50 hover:bg-white hover:border-slate-300'}`}>
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.has(p.id)}
+                        onChange={() => toggleSelect(p.id)}
+                        className="w-4 h-4 text-indigo-600 cursor-pointer mr-3 flex-shrink-0"
+                      />
+                      
+                      {/* Product Thumbnail */}
+                      {p.image_url && p.image_url !== 'FAILED' ? (
+                        <img 
+                          src={p.image_url} 
+                          alt={p.title}
+                          referrerPolicy="no-referrer"
+                          className="w-16 h-16 object-cover rounded-lg border border-slate-200 flex-shrink-0 mr-4"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-2xl text-slate-300 flex-shrink-0 mr-4">
+                          🖼️
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-slate-800 truncate" title={p.title}>{p.title}</div>
+                        <div className="text-sm text-slate-500 mt-1 flex flex-wrap gap-x-4 gap-y-1 items-center">
+                          <span className="font-bold text-emerald-600">₹{p.price}</span>
+                          <span>Comm: {p.commission_percent}%</span>
+                          {p.review_star && <span className="font-medium text-amber-500">⭐ {p.review_star}</span>}
+                          {p.total_bought && <span className="text-slate-400">{p.total_bought}</span>}
+                          {p.created_at && <span className="text-slate-400">🕒 {new Date(p.created_at).toLocaleString()}</span>}
+                          <a href={p.product_url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">View Link ↗</a>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-2">
+                        <input 
+                          type="checkbox"
+                          checked={p.video_created === 1}
+                          onChange={() => toggleVideoStatus(p.id, p.video_created)}
+                          className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span className={`text-sm font-bold ${p.video_created === 1 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                          {p.video_created === 1 ? 'Done' : 'Pending'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* Meesho Database Grid */}
+        {/* System Health Grid */}
+        <div className="grid grid-cols-1 gap-8 mt-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8">
           <div className="lg:col-span-5 bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col">
             
@@ -868,147 +1014,6 @@ export default function Home() {
               </div>
             </div>
             
-          </div>
-
-          <div className="lg:col-span-7 bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Product Database ({products.length} Total)</h2>
-              <button 
-                onClick={() => fetchMeeshoData(cfUrl)} 
-                className="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-semibold rounded-xl text-sm transition-colors flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                Refresh Data
-              </button>
-            </div>
-            
-            <div className="flex flex-col md:flex-row gap-4 mb-6">
-              <input 
-                type="text" 
-                placeholder="Search products..." 
-                className="flex-1 px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-              <select className="px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-                <option value="newest">Newest First</option>
-                <option value="priceAsc">Price: Low to High</option>
-                <option value="priceDesc">Price: High to Low</option>
-                <option value="commDesc">Commission: High to Low</option>
-              </select>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-6">
-              {categories.map(cat => (
-                <div key={cat} className="flex items-center shadow-sm rounded-full">
-                  <button 
-                    className={`px-4 py-1.5 ${cat !== 'All' ? 'rounded-l-full' : 'rounded-full'} text-sm font-semibold transition-colors border ${selectedCategory === cat ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
-                    onClick={() => setSelectedCategory(cat)}
-                  >
-                    {cat}
-                  </button>
-                  {cat !== 'All' && (
-                    <button
-                      onClick={() => deleteCategory(cat)}
-                      className={`px-2.5 py-1.5 rounded-r-full text-sm font-bold border-y border-r transition-colors ${selectedCategory === cat ? 'bg-indigo-700 text-red-300 border-indigo-700 hover:text-red-400' : 'bg-slate-100 text-red-400 border-slate-200 hover:bg-red-50 hover:text-red-500'}`}
-                      title={`Delete category: ${cat}`}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              ))}
-              <label className="flex items-center gap-2 ml-auto cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={hideProcessed} 
-                  onChange={e => setHideProcessed(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600"
-                />
-                <span className="text-sm font-semibold text-slate-600">Hide Completed</span>
-              </label>
-            </div>
-
-            {/* Select All / Delete toolbar */}
-            {displayedProducts.length > 0 && (
-              <div className="flex items-center gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <input
-                  type="checkbox"
-                  checked={selectedProducts.size === displayedProducts.length && displayedProducts.length > 0}
-                  onChange={selectAll}
-                  className="w-4 h-4 text-indigo-600 cursor-pointer"
-                />
-                <span className="text-sm text-slate-600 flex-1">
-                  {selectedProducts.size > 0 ? `${selectedProducts.size} selected` : 'Select All'}
-                </span>
-                {selectedProducts.size > 0 && (
-                  <button
-                    onClick={deleteSelected}
-                    className="px-4 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-1"
-                  >
-                    🗑 Delete ({selectedProducts.size})
-                  </button>
-                )}
-              </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-[500px]">
-              {displayedProducts.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400 py-12">
-                  <p className="font-medium">No products found. Enter CF URL or run extraction.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {displayedProducts.map((p: any) => (
-                    <div key={p.id} className={`flex justify-between items-center p-4 rounded-xl border transition-all ${selectedProducts.has(p.id) ? 'bg-indigo-50 border-indigo-300' : 'border-slate-100 bg-slate-50 hover:bg-white hover:border-slate-300'}`}>
-                      <input
-                        type="checkbox"
-                        checked={selectedProducts.has(p.id)}
-                        onChange={() => toggleSelect(p.id)}
-                        className="w-4 h-4 text-indigo-600 cursor-pointer mr-3 flex-shrink-0"
-                      />
-                      
-                      {/* Product Thumbnail */}
-                      {p.image_url && p.image_url !== 'FAILED' ? (
-                        <img 
-                          src={p.image_url} 
-                          alt={p.title}
-                          referrerPolicy="no-referrer"
-                          className="w-16 h-16 object-cover rounded-lg border border-slate-200 flex-shrink-0 mr-4"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-2xl text-slate-300 flex-shrink-0 mr-4">
-                          🖼️
-                        </div>
-                      )}
-
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-slate-800 truncate" title={p.title}>{p.title}</div>
-                        <div className="text-sm text-slate-500 mt-1 flex flex-wrap gap-x-4 gap-y-1 items-center">
-                          <span className="font-bold text-emerald-600">₹{p.price}</span>
-                          <span>Comm: {p.commission_percent}%</span>
-                          {p.review_star && <span className="font-medium text-amber-500">⭐ {p.review_star}</span>}
-                          {p.total_bought && <span className="text-slate-400">{p.total_bought}</span>}
-                          {p.created_at && <span className="text-slate-400">🕒 {new Date(p.created_at).toLocaleString()}</span>}
-                          <a href={p.product_url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">View Link ↗</a>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-2">
-                        <input 
-                          type="checkbox"
-                          checked={p.video_created === 1}
-                          onChange={() => toggleVideoStatus(p.id, p.video_created)}
-                          className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                        />
-                        <span className={`text-sm font-bold ${p.video_created === 1 ? 'text-emerald-500' : 'text-slate-400'}`}>
-                          {p.video_created === 1 ? 'Done' : 'Pending'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>
