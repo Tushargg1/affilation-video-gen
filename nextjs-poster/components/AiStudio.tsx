@@ -254,7 +254,10 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
               imageBase64: [imgB64]
             })
           });
-          alert(`✅ Sent VIDEO generation task for "${needsVideo.title}" to Extension!`);
+          alert(`✅ Sent VIDEO generation task for "${needsVideo.title}" to Extension! Polling for result in background...`);
+          
+          // Poll for Video Result
+          pollAndSaveResult(needsVideo.id, 'video');
         } catch (e) {
           alert('❌ Failed to connect to local server on port 3001.');
         }
@@ -295,7 +298,10 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
             imageBase64: mediaPayload
           })
         });
-        alert(`✅ Sent IMAGE generation task for "${needsImage.title}" to Extension!`);
+        alert(`✅ Sent IMAGE generation task for "${needsImage.title}" to Extension! Polling for result in background...`);
+        
+        // Poll for Image Result
+        pollAndSaveResult(needsImage.id, 'image');
       } catch (e) {
         alert('❌ Failed to connect to local server on port 3001.');
       }
@@ -305,6 +311,56 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
 
     alert('✅ No pending image or video generation tasks found!');
     setIsSending(false);
+  };
+
+  const pollAndSaveResult = async (productId: string, type: 'image' | 'video') => {
+    setStatus({ type: 'info', message: `Waiting for ${type} generation to complete...` });
+    
+    for (let i = 0; i < 60; i++) { // Poll for up to 5 minutes
+      await new Promise(r => setTimeout(r, 5000));
+      try {
+        const res = await fetch('http://localhost:3001/api/result');
+        const data = await res.json();
+        if (data.hasResult && data.result && data.result.success && data.result.mediaBase64) {
+          
+          setStatus({ type: 'info', message: `${type} received! Uploading to Vercel...` });
+          
+          // Upload to Vercel Blob
+          const uploadRes = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64: data.result.mediaBase64 })
+          });
+          const uploadData = await uploadRes.json();
+          
+          if (uploadData.url) {
+            setStatus({ type: 'info', message: `Upload complete! Saving to database...` });
+            
+            // Update Database
+            const payload = type === 'image' 
+              ? { id: productId, generated_image_url: uploadData.url }
+              : { id: productId, video_url: uploadData.url, video_created: true };
+              
+            await fetch('/api/db/products/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            
+            setStatus({ type: 'success', message: `✅ ${type.toUpperCase()} successfully saved to Product Card!` });
+            
+            // Give a chance to refresh the UI
+            setTimeout(() => window.location.reload(), 2000);
+          } else {
+            setStatus({ type: 'error', message: 'Failed to upload generated media to Vercel.' });
+          }
+          break;
+        } else if (data.hasResult && data.result && !data.result.success) {
+          setStatus({ type: 'error', message: `Generation failed: ${data.result.error}` });
+          break;
+        }
+      } catch(e) {}
+    }
   };
 
   const callGeminiWithFallback = async (promptText: string, imageUrl: string, modelImageUrl: string | null, onStatus: (msg: string, type: 'info'|'warning') => void) => {
