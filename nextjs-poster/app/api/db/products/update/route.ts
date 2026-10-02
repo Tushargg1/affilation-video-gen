@@ -8,12 +8,17 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { id, video_created } = await request.json();
-    const val = video_created ? 1 : 0;
+    const body = await request.json();
+    const { id, video_created, is_posted, is_affiliated } = body;
+    
+    const updatePayload: any = {};
+    if (video_created !== undefined) updatePayload.video_created = video_created ? 1 : 0;
+    if (is_posted !== undefined) updatePayload.is_posted = is_posted;
+    if (is_affiliated !== undefined) updatePayload.is_affiliated = is_affiliated;
     
     const { error } = await supabase
       .from('auto_products')
-      .update({ video_created: val })
+      .update(updatePayload)
       .eq('id', id);
       
     if (error) {
