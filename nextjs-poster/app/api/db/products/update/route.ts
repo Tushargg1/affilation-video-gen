@@ -15,8 +15,8 @@ export async function POST(request: Request) {
     if (video_created !== undefined) updatePayload.video_created = video_created ? 1 : 0;
     if (is_posted !== undefined) updatePayload.is_posted = is_posted;
     if (is_affiliated !== undefined) updatePayload.is_affiliated = is_affiliated;
-    if (social_link_1 !== undefined) updatePayload.image_url = social_link_1;
-    if (social_link_2 !== undefined) updatePayload.video_url = social_link_2;
+    if (social_link_1 !== undefined) updatePayload.downloaded_image_path = social_link_1;
+    if (social_link_2 !== undefined) updatePayload.downloaded_video_path = social_link_2;
     
     const { error } = await supabase
       .from('auto_products')
