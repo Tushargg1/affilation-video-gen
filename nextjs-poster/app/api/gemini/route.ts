@@ -44,7 +44,10 @@ export async function POST(req: Request) {
     }
 
     try {
-      const generativeModel = genAI.getGenerativeModel({ model: model });
+      const generativeModel = genAI.getGenerativeModel(
+        { model: model }, 
+        { apiVersion: 'v1' }
+      );
       const result = await generativeModel.generateContent(parts);
       const responseText = result.response.text();
       return NextResponse.json({ success: true, text: responseText, usedModel: model });
