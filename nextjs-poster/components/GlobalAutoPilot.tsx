@@ -160,19 +160,32 @@ export default function GlobalAutoPilot() {
         writeLog(`[Image Prompt] Already exists, skipping generation.`);
       }
 
-      // ─── STEP 2: Convert product photo to base64 for the extension ───
-      writeLog('Preparing product image for extension...');
+      // ─── STEP 2: Convert photos to base64 for the extension ───
+      writeLog('Preparing product & model images for extension...');
       let productImgBase64: any = null;
-      if (prod.image_url) {
+      let modelImgBase64: any = null;
+      
+      const fetchBase64 = async (url: string) => {
         try {
-          const res = await fetch(prod.image_url);
-          const blob = await res.blob();
-          productImgBase64 = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.readAsDataURL(blob);
+          const res = await fetch('/api/proxy-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
           });
-        } catch(e) { writeLog('Warning: Could not load product image.'); }
+          const data = await res.json();
+          return data.base64 || null;
+        } catch(e) { return null; }
+      };
+
+      if (prod.image_url) {
+        productImgBase64 = await fetchBase64(prod.image_url);
+        if (!productImgBase64) writeLog('Warning: Could not load product image via proxy.');
+      }
+      
+      const modelPhotoUrl = prod.model_photo_url || localStorage.getItem('global_model_photo');
+      if (modelPhotoUrl) {
+        modelImgBase64 = await fetchBase64(modelPhotoUrl);
+        if (!modelImgBase64) writeLog('Warning: Could not load model image via proxy.');
       }
 
       // ─── STEP 3: Send IMAGE PROMPT to extension → generate actual image ───
@@ -183,7 +196,11 @@ export default function GlobalAutoPilot() {
         await fetch('http://localhost:3001/api/job', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imagePrompt: imgPrompt, videoPrompt: '', imageBase64: productImgBase64 })
+          body: JSON.stringify({ 
+            imagePrompt: imgPrompt, 
+            videoPrompt: '', 
+            imageBase64: [productImgBase64, modelImgBase64].filter(Boolean) 
+          })
         });
       } catch(e) {
         writeLog('❌ Bridge server offline! Make sure node server.js is running on port 3001.');
