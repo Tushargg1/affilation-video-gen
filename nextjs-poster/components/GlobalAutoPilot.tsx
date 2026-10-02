@@ -372,9 +372,12 @@ export default function GlobalAutoPilot() {
                   break;
                 }
                 
-                finalVideoUrl = data.result.mediaBase64;
+                // IMPORTANT: For VIDEO jobs, ALWAYS ignore mediaBase64.
+                // The extension's fetch() on the video element only captures a PNG thumbnail/preview frame,
+                // NOT the actual .mp4 file. We MUST wait for the native download to complete.
+                finalVideoUrl = null;
                 
-                if (data.result.isNativeDownload && !finalVideoUrl) {
+                if (data.result.isNativeDownload || true) { // Always use native download for video
                    writeLog('Video generation finished! Now waiting for the .mp4 file to finish downloading (up to 3 minutes)...');
                    for (let j = 0; j < 36; j++) {
                       await new Promise(r => setTimeout(r, 5000));
