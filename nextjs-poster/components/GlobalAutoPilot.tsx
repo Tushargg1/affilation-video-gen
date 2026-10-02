@@ -26,7 +26,14 @@ const callGeminiWithInfiniteFallback = async (prompt: string, imageUrl: string, 
         body: JSON.stringify({ prompt, imageUrl, modelImageUrl, model: currentModel })
       });
       
-      const data = await res.json();
+      const textResponse = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(textResponse);
+      } catch (e) {
+        throw new Error(`Non-JSON response from server (Status ${res.status}): ${textResponse.substring(0, 40)}...`);
+      }
+
       if (res.ok && data.text) {
         return { text: data.text, usedModel: currentModel };
       } else {
