@@ -55,6 +55,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <Link href="/products" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
                     <span>🖼️</span> Gallery
                   </Link>
+                  <Link href="/raw-data" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-red-600 hover:bg-red-50/80 transition-all duration-200 flex items-center gap-2 border border-red-100">
+                    <span>🕵️</span> Unidentified Data
+                  </Link>
                 </div>
               </div>
             </div>
