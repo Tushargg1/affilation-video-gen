@@ -138,37 +138,53 @@ export default function GlobalAutoPilot() {
         const vidPromptText = config.base_video_prompt || `Write a highly detailed text-to-video prompt... Return ONLY the final prompt text.`;
 
         // 1. Generate Image Prompt
-        const imgData = await callGeminiWithInfiniteFallback(
-          imgPromptText, 
-          prod.image_url, 
-          prod.model_photo_url || localStorage.getItem('global_model_photo'), 
-          '[Image Prompt]'
-        );
-        imgPrompt = imgData.text;
+        let imgData;
+        if (!imgPrompt) {
+          writeLog(`[Image Prompt] Generating via 3.8-flash...`);
+          imgData = await callGeminiWithInfiniteFallback(
+            imgPromptText, 
+            prod.image_url, 
+            prod.model_photo_url || localStorage.getItem('global_model_photo'), 
+            '[Image Prompt]'
+          );
+          imgPrompt = imgData.text;
+          
+          // Save Image Prompt to DB immediately
+          await fetch('/api/db/products/update-prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              id: prod.id, 
+              image_prompt: imgPrompt,
+              used_model: imgData.usedModel || 'gemini-3.8-flash'
+            })
+          });
+        }
 
-        writeLog('Waiting 8 seconds before generating Video Prompt...');
-        await new Promise(r => setTimeout(r, 8000));
+        if (!vidPrompt) {
+          writeLog('Waiting 8 seconds before generating Video Prompt...');
+          await new Promise(r => setTimeout(r, 8000));
 
-        // 2. Generate Video Prompt
-        const vidData = await callGeminiWithInfiniteFallback(
-          vidPromptText, 
-          prod.image_url, 
-          null, 
-          '[Video Prompt]'
-        );
-        vidPrompt = vidData.text;
-        
-        // Save to DB
-        await fetch('/api/db/products/update-prompt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            id: prod.id, 
-            image_prompt: imgPrompt, 
-            video_prompt: vidPrompt,
-            used_model: imgData.usedModel || 'gemini-3.8-flash'
-          })
-        });
+          // 2. Generate Video Prompt
+          const vidData = await callGeminiWithInfiniteFallback(
+            vidPromptText, 
+            prod.image_url, 
+            null, 
+            '[Video Prompt]'
+          );
+          vidPrompt = vidData.text;
+          
+          // Save Video Prompt to DB immediately
+          await fetch('/api/db/products/update-prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              id: prod.id, 
+              video_prompt: vidPrompt,
+              used_model: vidData.usedModel || 'gemini-3.8-flash'
+            })
+          });
+        }
       }
 
       // Convert Product Photo URL to Base64
