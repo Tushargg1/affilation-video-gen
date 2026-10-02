@@ -244,7 +244,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       setSelectedProductId(needsVideo.id);
       setStatus({ type: 'info', message: `Found product for Video generation: ${needsVideo.title}` });
       
-      const imgB64 = await fetchBase64(needsVideo.image_url);
+      const imgB64 = await fetchBase64(needsVideo.downloaded_image_path || needsVideo.image_url);
       
       if (imgB64) {
         try {

@@ -320,6 +320,10 @@ export default function GlobalAutoPilot() {
         }
 
         try {
+          // Absolute safety: Clear any jobs and results that might have completed while we were generating the prompt
+          await fetch('http://localhost:3001/api/job', { method: 'DELETE' }).catch(() => {});
+          await fetch('http://localhost:3001/api/result', { method: 'DELETE' }).catch(() => {});
+
           const videoInputImages = [videoReferenceBase64, productImgBase64].filter(Boolean);
           await fetch('http://localhost:3001/api/job', {
             method: 'POST',
