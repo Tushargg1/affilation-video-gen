@@ -68,9 +68,6 @@ export default function ProductsGallery() {
     return true;
   });
 
-  if (loading) {
-    return <div className="text-center p-12 text-slate-500">Loading products gallery...</div>;
-  }
 
   return (
     <div className="space-y-10 max-w-6xl mx-auto">
@@ -100,8 +97,14 @@ export default function ProductsGallery() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-8">
-        {filteredProducts.map((product) => (
+      {loading ? (
+        <div className="flex flex-col items-center justify-center p-24 bg-white/50 backdrop-blur-sm rounded-3xl border border-dashed border-slate-300">
+          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+          <p className="text-slate-500 font-medium">Loading products gallery...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-8">
+          {filteredProducts.map((product) => (
           <div key={product.id} className="group relative bg-white/80 backdrop-blur-md rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 hover:shadow-[0_8px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 hover:border-indigo-100 transition-all duration-500 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
             
@@ -228,7 +231,8 @@ export default function ProductsGallery() {
             <p className="text-slate-500 mt-2 max-w-md mx-auto">Try selecting a different filter from the navigation above.</p>
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
