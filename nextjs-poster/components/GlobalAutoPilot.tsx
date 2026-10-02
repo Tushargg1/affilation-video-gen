@@ -208,6 +208,7 @@ export default function GlobalAutoPilot() {
         if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
         try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
         writeLog('Sending Image Prompt to extension to generate the image...');
+        const imageJobStartTime = Date.now();
         try {
           await fetch('http://localhost:3001/api/job', {
             method: 'POST',
@@ -242,15 +243,19 @@ export default function GlobalAutoPilot() {
                 }
                 generatedImageBase64 = data.result.mediaBase64;
                 if (data.result.isNativeDownload && !generatedImageBase64) {
-                   writeLog(`Image generation finished! Waiting for local download to complete (up to 2 minutes)...`);
-                   for (let j = 0; j < 24; j++) {
+                   writeLog(`Image generation finished! Waiting for local download to complete (up to 3 minutes)...`);
+                   for (let j = 0; j < 36; j++) {
                       await new Promise(r => setTimeout(r, 5000));
+                      writeLog(`  Polling for downloaded image... attempt ${j+1}/36`);
                       try {
-                         const mediaRes = await fetch('http://localhost:3001/api/latest-media?type=image');
+                         const mediaRes = await fetch(`http://localhost:3001/api/latest-media?type=image&job_start_time=${imageJobStartTime}`);
                          const mediaData = await mediaRes.json();
                          if (mediaData.success && mediaData.base64) {
                              generatedImageBase64 = mediaData.base64;
+                             writeLog(`  ✅ Found image: ${mediaData.filename}`);
                              break;
+                         } else {
+                             writeLog(`  ⏳ Not ready yet: ${mediaData.error || 'waiting...'}`);
                          }
                       } catch(e) {}
                    }
@@ -327,6 +332,7 @@ export default function GlobalAutoPilot() {
         if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
         try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
         writeLog('Sending Video Prompt + generated image to extension to create the video...');
+        const videoJobStartTime = Date.now();
         
         // If we skipped image generation because it was already generated, we need to fetch its base64 again to send as context!
         let videoReferenceBase64 = generatedImageBase64;
@@ -369,15 +375,19 @@ export default function GlobalAutoPilot() {
                 finalVideoUrl = data.result.mediaBase64;
                 
                 if (data.result.isNativeDownload && !finalVideoUrl) {
-                   writeLog('Video generation finished! Waiting for local download to complete...');
-                   for (let j = 0; j < 24; j++) {
+                   writeLog('Video generation finished! Now waiting for the .mp4 file to finish downloading (up to 3 minutes)...');
+                   for (let j = 0; j < 36; j++) {
                       await new Promise(r => setTimeout(r, 5000));
+                      writeLog(`  Polling for .mp4 in Downloads... attempt ${j+1}/36`);
                       try {
-                         const vidRes = await fetch('http://localhost:3001/api/latest-media?type=video');
+                         const vidRes = await fetch(`http://localhost:3001/api/latest-media?type=video&job_start_time=${videoJobStartTime}`);
                          const vidData = await vidRes.json();
                          if (vidData.success && vidData.base64) {
                              finalVideoUrl = vidData.base64;
+                             writeLog(`  ✅ Found video: ${vidData.filename}`);
                              break;
+                         } else {
+                             writeLog(`  ⏳ Not ready: ${vidData.error || 'waiting...'}`);
                          }
                       } catch(e) {}
                    }
