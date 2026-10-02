@@ -23,27 +23,34 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
-        <nav className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
+      <body className="min-h-full flex flex-col bg-gradient-to-br from-slate-50 to-slate-100 text-slate-900 selection:bg-indigo-500 selection:text-white">
+        <nav className="sticky top-0 z-50 w-full backdrop-blur-xl bg-white/70 border-b border-white/20 shadow-[0_4px_30px_rgba(0,0,0,0.03)] transition-all duration-300">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16">
-              <div className="flex">
-                <div className="flex-shrink-0 flex items-center">
-                  <span className="text-xl font-bold text-indigo-600">✨ AI Content Studio</span>
+            <div className="flex justify-between h-16 items-center">
+              <div className="flex items-center gap-8">
+                <div className="flex-shrink-0 flex items-center group cursor-pointer">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:shadow-indigo-500/50 transition-all duration-300 mr-3">
+                    <svg className="w-5 h-5 text-white transform group-hover:rotate-12 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 tracking-tight">
+                    AI Studio
+                  </span>
                 </div>
-                <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                  <a href="/" className="border-indigo-500 text-slate-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                <div className="hidden sm:flex sm:space-x-1">
+                  <a href="/" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200">
                     Dashboard
                   </a>
-                  <a href="/products" className="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                    Products Gallery
+                  <a href="/products" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200">
+                    Gallery
                   </a>
                 </div>
               </div>
             </div>
           </div>
         </nav>
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
           {children}
         </main>
       </body>

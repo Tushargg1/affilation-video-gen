@@ -433,17 +433,33 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   };
 
   return (
-    <div className="bg-white rounded-xl shadow p-6 mb-8 border border-indigo-100">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <span>✨</span> AI Content Studio
-        </h2>
+    <div className="relative bg-white/80 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 mb-10 border border-white/60 overflow-hidden group">
+      <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-80"></div>
+      <div className="absolute -top-24 -right-24 w-64 h-64 bg-gradient-to-br from-indigo-400/10 to-purple-400/10 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-700"></div>
+      
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 relative z-10">
+        <div>
+          <h2 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-900 to-purple-900 flex items-center gap-3 tracking-tight">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center shadow-inner border border-indigo-50">
+              <span className="text-xl">✨</span>
+            </div>
+            AI Content Studio
+          </h2>
+          <p className="text-slate-500 mt-2 font-medium">Generate cinematic prompts and automate video creation</p>
+        </div>
         <button 
           onClick={runDailyAutomation}
           disabled={isAutomating}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold shadow-lg disabled:opacity-50 transition-all flex items-center gap-2"
+          className="relative inline-flex h-12 overflow-hidden rounded-full p-[2px] focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-50 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-95"
         >
-          {isAutomating ? '🔄 Running Automation...' : '🤖 Start Daily Automation'}
+          <span className="absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#E2CBFF_0%,#393BB2_50%,#E2CBFF_100%)]" />
+          <span className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-slate-950 px-6 py-1 text-sm font-bold text-white backdrop-blur-3xl gap-2">
+            {isAutomating ? (
+              <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Running Automation...</>
+            ) : (
+              <>🤖 Start Daily Automation</>
+            )}
+          </span>
         </button>
       </div>
       
@@ -462,16 +478,19 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
         
         {/* Step 1: Selection */}
-        <div className="space-y-6 bg-slate-50 p-6 rounded-xl border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-700">1. Select Product</h3>
+        <div className="space-y-6 bg-white/70 backdrop-blur-md p-8 rounded-3xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_40px_rgb(0,0,0,0.08)] transition-all duration-300">
+          <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <span className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-sm font-black text-slate-600">1</span>
+            Select Product
+          </h3>
           
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Category</label>
+            <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Category</label>
             <select 
-              className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white/50 backdrop-blur-sm transition-all text-slate-700 font-medium"
               value={selectedCategory}
               onChange={e => {
                 const cat = e.target.value;
@@ -490,9 +509,9 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
           </div>
           
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Product</label>
+            <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Product</label>
             <select 
-              className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white/50 backdrop-blur-sm transition-all text-slate-700 font-medium"
               value={selectedProductId}
               onChange={e => handleProductSelect(Number(e.target.value))}
               disabled={!selectedCategory}
@@ -504,50 +523,62 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Upload Model Photo</label>
-            <div className="flex gap-2">
+          <div className="pt-2">
+            <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Upload Model Photo</label>
+            <div className="flex gap-3">
               <input 
                 type="file" 
                 accept="image/*"
                 onChange={e => setModelPhoto(e.target.files?.[0] || null)}
-                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
+                className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white/50 backdrop-blur-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-all cursor-pointer text-slate-600"
               />
               <button 
                 onClick={handleUploadPhoto}
                 disabled={!modelPhoto || isLoading}
-                className="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold hover:bg-slate-700 disabled:opacity-50"
+                className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 hover:shadow-lg transition-all active:scale-95"
               >
                 Upload
               </button>
             </div>
-            {modelPhotoUrl && <img src={modelPhotoUrl} alt="Model" className="mt-4 w-32 h-32 object-cover rounded-lg border-2 border-indigo-200" />}
+            {modelPhotoUrl && (
+              <div className="mt-6 relative inline-block group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
+                <img src={modelPhotoUrl} alt="Model" className="relative w-32 h-32 object-cover rounded-xl border border-white shadow-sm" />
+              </div>
+            )}
           </div>
         </div>
 
         {/* Step 2: Generation */}
-        <div className="space-y-6 bg-indigo-50 p-6 rounded-xl border border-indigo-200">
-          <h3 className="text-lg font-bold text-indigo-900">2. Generate Prompts for Extension</h3>
+        <div className="space-y-6 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 backdrop-blur-md p-8 rounded-3xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_40px_rgb(0,0,0,0.08)] transition-all duration-300">
+          <h3 className="text-xl font-bold text-indigo-900 flex items-center gap-2">
+            <span className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-black text-indigo-600">2</span>
+            Generate Prompts
+          </h3>
           
           <button 
             onClick={generatePrompts}
             disabled={!selectedProduct || isLoading}
-            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="w-full relative group overflow-hidden bg-indigo-600 text-white py-4 rounded-xl font-bold disabled:opacity-50 transition-all active:scale-95 shadow-[0_4px_20px_rgba(79,70,229,0.3)] hover:shadow-[0_8px_30px_rgba(79,70,229,0.4)]"
           >
-            🧠 Generate Image & Video Prompts
+            <span className="absolute right-0 w-8 h-32 -mt-12 transition-all duration-1000 transform translate-x-12 bg-white opacity-10 rotate-12 group-hover:-translate-x-96 ease"></span>
+            <span className="relative flex items-center justify-center gap-2 text-lg">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              Generate Image & Video Prompts
+            </span>
           </button>
           
           {imagePrompt && (
-            <div>
-              <div className="flex justify-between items-center mb-2">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex justify-between items-center mb-2 mt-6">
                 <div className="flex items-center gap-3">
-                  <label className="block text-sm font-bold text-indigo-900">Generated Image Prompt</label>
-                  {usedModel && <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full border border-indigo-200 shadow-sm">🤖 {usedModel}</span>}
+                  <label className="block text-sm font-bold text-indigo-900 uppercase tracking-wider">Image Prompt</label>
+                  {usedModel && <span className="text-xs font-bold bg-white text-indigo-700 px-3 py-1 rounded-full border border-indigo-100 shadow-sm">✨ {usedModel}</span>}
                 </div>
-                <button onClick={() => navigator.clipboard.writeText(imagePrompt)} className="text-xs bg-indigo-200 text-indigo-800 px-2 py-1 rounded hover:bg-indigo-300">Copy</button>
+                <button onClick={() => navigator.clipboard.writeText(imagePrompt)} className="text-xs bg-indigo-100 text-indigo-800 px-3 py-1.5 rounded-lg hover:bg-indigo-200 transition-colors font-semibold">Copy</button>
               </div>
               <textarea 
-                className="w-full p-3 border border-indigo-300 rounded-lg h-32 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full p-4 border border-indigo-200/60 rounded-2xl h-32 text-sm focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none bg-white/80 shadow-inner text-slate-700 leading-relaxed resize-none transition-all"
                 value={imagePrompt}
                 onChange={e => setImagePrompt(e.target.value)}
               />
@@ -555,39 +586,46 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
           )}
 
           {videoPrompt && (
-            <div className="pt-2">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100 pt-4">
               <div className="flex justify-between items-center mb-2">
                 <div className="flex items-center gap-3">
-                  <label className="block text-sm font-bold text-purple-900">Generated Video Prompt</label>
-                  {usedModel && <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2 py-1 rounded-full border border-purple-200 shadow-sm">🤖 {usedModel}</span>}
+                  <label className="block text-sm font-bold text-purple-900 uppercase tracking-wider">Video Prompt</label>
+                  {usedModel && <span className="text-xs font-bold bg-white text-purple-700 px-3 py-1 rounded-full border border-purple-100 shadow-sm">✨ {usedModel}</span>}
                 </div>
-                <button onClick={() => navigator.clipboard.writeText(videoPrompt)} className="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded hover:bg-purple-300">Copy</button>
+                <button onClick={() => navigator.clipboard.writeText(videoPrompt)} className="text-xs bg-purple-100 text-purple-800 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors font-semibold">Copy</button>
               </div>
               <textarea 
-                className="w-full p-3 border border-purple-300 rounded-lg h-32 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                className="w-full p-4 border border-purple-200/60 rounded-2xl h-32 text-sm focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 outline-none bg-white/80 shadow-inner text-slate-700 leading-relaxed resize-none transition-all"
                 value={videoPrompt}
                 onChange={e => setVideoPrompt(e.target.value)}
               />
               
-              <div className="mt-8 p-4 bg-white rounded-lg border-2 border-green-500 shadow-lg">
-                <h4 className="text-lg font-bold text-green-700 mb-2 flex items-center gap-2">
-                  <span>⚡</span> Fully Automatic Google Flow
+              <div className="mt-8 p-6 bg-white/90 backdrop-blur-md rounded-2xl border border-emerald-100 shadow-[0_8px_30px_rgba(16,185,129,0.1)] relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+                <h4 className="text-lg font-extrabold text-emerald-800 mb-2 flex items-center gap-2">
+                  <span className="text-2xl animate-pulse">⚡</span> Auto Google Flow
                 </h4>
-                <p className="text-sm text-slate-600 mb-4">
-                  Send these prompts and the uploaded image directly to your Chrome Extension! The extension will automatically run in the background.
+                <p className="text-sm text-slate-600 mb-6 leading-relaxed font-medium">
+                  Send these prompts and images instantly to the Chrome Extension.
                 </p>
                 <button 
                   onClick={sendToAutomation}
                   disabled={isSending}
-                  className="w-full bg-green-600 text-white py-4 rounded-lg font-bold text-lg shadow-[0_0_15px_rgba(34,197,94,0.4)] hover:bg-green-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                  className="w-full relative group/btn overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_8px_20px_rgba(16,185,129,0.3)] hover:shadow-[0_8px_30px_rgba(16,185,129,0.4)] disabled:opacity-50 transition-all active:scale-95"
                 >
-                  {isSending ? 'Sending...' : '🚀 Send to Video Gen Automation'}
+                  <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite]"></span>
+                  <span className="relative flex items-center justify-center gap-2">
+                    {isSending ? (
+                       <><svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Sending...</>
+                    ) : (
+                      <>🚀 Send to Video Gen Automation</>
+                    )}
+                  </span>
                 </button>
               </div>
             </div>
           )}
         </div>
-
       </div>
     </div>
   );
