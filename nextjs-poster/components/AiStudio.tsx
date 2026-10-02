@@ -341,67 +341,85 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
           if (type === 'video') {
             // ALWAYS ignore mediaBase64 for video - it's a PNG thumbnail.
             // background.js now waits for .mp4 to fully download before reporting success.
-            setStatus({ type: 'info', message: `Video done! Locating .mp4 in Downloads...` });
-            for (let j = 0; j < 36; j++) {
-               await new Promise(r => setTimeout(r, 5000));
-               setStatus({ type: 'info', message: `Polling for .mp4... attempt ${j+1}/36` });
-               try {
-                  const vidRes = await fetch(`http://localhost:3001/api/latest-media?type=video&job_start_time=${jobStartTime}`);
-                  const vidData = await vidRes.json();
-                  if (vidData.success && vidData.base64) {
-                      base64ToUpload = vidData.base64;
-                      setStatus({ type: 'info', message: `Found: ${vidData.filename}` });
-                      break;
-                  } else {
-                      setStatus({ type: 'info', message: `Not ready: ${vidData.error || 'waiting...'}` });
-                  }
-               } catch(e) {}
-            }
-          } else {
-            // For IMAGE: use mediaBase64 first, fall back to latest-media
-            base64ToUpload = data.result.mediaBase64;
-            if (data.result.isNativeDownload && !base64ToUpload) {
-               setStatus({ type: 'info', message: `Image done! Waiting for local download...` });
-               for (let j = 0; j < 36; j++) {
-                  await new Promise(r => setTimeout(r, 5000));
-                  try {
-                     const imgRes = await fetch(`http://localhost:3001/api/latest-media?type=image&job_start_time=${jobStartTime}`);
-                     const imgData = await imgRes.json();
-                     if (imgData.success && imgData.base64) { base64ToUpload = imgData.base64; break; }
-                  } catch(e) {}
-               }
-            }
-          }
-          
-          if (!base64ToUpload) {
-              setStatus({ type: 'error', message: `Failed to locate downloaded ${type} file.` });
+                if (data.result.isNativeDownload || true) { // Always use native download for video
+                   setStatus({ type: 'info', message: `Video done! Locating .mp4 in Downloads...` });
+                   for (let j = 0; j < 36; j++) {
+                      await new Promise(r => setTimeout(r, 5000));
+                      setStatus({ type: 'info', message: `Polling for .mp4... attempt ${j+1}/36` });
+                      try {
+                         const vidRes = await fetch(`http://localhost:3001/api/latest-media?type=video&job_start_time=${jobStartTime}`);
+                         const vidData = await vidRes.json();
+                         if (vidData.success && (vidData.base64 || vidData.filepath)) {
+                             base64ToUpload = vidData.filepath || vidData.base64;
+                             setStatus({ type: 'info', message: `Found: ${vidData.filename}` });
+                             break;
+                         } else {
+                             setStatus({ type: 'info', message: `Not ready: ${vidData.error || 'waiting...'}` });
+                         }
+                      } catch(e) {}
+                   }
+                }
+              } else {
+                // For IMAGE: use mediaBase64 first, fall back to latest-media
+                base64ToUpload = data.result.mediaBase64;
+                if (data.result.isNativeDownload && !base64ToUpload) {
+                   setStatus({ type: 'info', message: `Image done! Waiting for local download...` });
+                   for (let j = 0; j < 36; j++) {
+                      await new Promise(r => setTimeout(r, 5000));
+                      try {
+                         const imgRes = await fetch(`http://localhost:3001/api/latest-media?type=image&job_start_time=${jobStartTime}`);
+                         const imgData = await imgRes.json();
+                         if (imgData.success && imgData.base64) { base64ToUpload = imgData.base64; break; }
+                      } catch(e) {}
+                   }
+                }
+              }
+              
+              if (!base64ToUpload) {
+                  setStatus({ type: 'error', message: `Failed to locate downloaded ${type} file.` });
+                  break;
+              }
+              
+              setStatus({ type: 'info', message: `Uploading ${type} to Vercel...` });
+              let uploadUrl = null;
+              
+              if (base64ToUpload.includes('\\') || base64ToUpload.includes('/')) {
+                // Upload local file directly
+                setStatus({ type: 'info', message: `Uploading directly from local server (bypasses limits)...` });
+                const localRes = await fetch('http://localhost:3001/api/upload-local', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ filepath: base64ToUpload })
+                });
+                const localData = await localRes.json();
+                if (localData.url) uploadUrl = localData.url;
+              } else {
+                // Upload base64 via Next.js
+                const uploadRes = await fetch('/api/upload', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ base64: base64ToUpload, isVideo: type === 'video' })
+                });
+                const uploadData = await uploadRes.json();
+                if (uploadData.url) uploadUrl = uploadData.url;
+              }
+              
+              if (uploadUrl) {
+                setStatus({ type: 'info', message: `Upload complete! Saving to database...` });
+                const payload = type === 'image' 
+                  ? { id: productId, social_link_1: uploadUrl }
+                  : { id: productId, social_link_2: uploadUrl, video_created: true };
+                await fetch('/api/db/products/update', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload)
+                });
+                setStatus({ type: 'success', message: `✅ ${type.toUpperCase()} saved to Product Card!` });
+                setTimeout(() => window.location.reload(), 2000);
+              } else {
+                setStatus({ type: 'error', message: 'Failed to upload to Vercel.' });
+              }
               break;
-          }
-          
-          setStatus({ type: 'info', message: `Uploading ${type} to Vercel...` });
-          const uploadRes = await fetch('/api/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ base64: base64ToUpload, isVideo: type === 'video' })
-          });
-          const uploadData = await uploadRes.json();
-          
-          if (uploadData.url) {
-            setStatus({ type: 'info', message: `Upload complete! Saving to database...` });
-            const payload = type === 'image' 
-              ? { id: productId, social_link_1: uploadData.url }
-              : { id: productId, social_link_2: uploadData.url, video_created: true };
-            await fetch('/api/db/products/update', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-            setStatus({ type: 'success', message: `✅ ${type.toUpperCase()} saved to Product Card!` });
-            setTimeout(() => window.location.reload(), 2000);
-          } else {
-            setStatus({ type: 'error', message: 'Failed to upload to Vercel.' });
-          }
-          break;
         } else if (data.hasResult && data.result && !data.result.success) {
           setStatus({ type: 'error', message: `Generation failed: ${data.result.error}` });
           break;

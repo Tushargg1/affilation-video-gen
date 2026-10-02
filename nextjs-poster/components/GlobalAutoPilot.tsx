@@ -385,8 +385,8 @@ export default function GlobalAutoPilot() {
                       try {
                          const vidRes = await fetch(`http://localhost:3001/api/latest-media?type=video&job_start_time=${videoJobStartTime}`);
                          const vidData = await vidRes.json();
-                         if (vidData.success && vidData.base64) {
-                             finalVideoUrl = vidData.base64;
+                         if (vidData.success && (vidData.base64 || vidData.filepath)) {
+                             finalVideoUrl = vidData.filepath || vidData.base64; // Store filepath if available, else base64
                              writeLog(`  ✅ Found video: ${vidData.filename}`);
                              break;
                          } else {
@@ -412,19 +412,34 @@ export default function GlobalAutoPilot() {
         if (finalVideoUrl) {
           writeLog('Uploading generated video to Vercel Cloud Storage...');
           try {
-            const uploadRes = await fetch('/api/upload', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ base64: finalVideoUrl, isVideo: true })
-            });
-            const uploadData = await uploadRes.json();
-            if (uploadData.url) {
+            let uploadUrl = null;
+            // If finalVideoUrl is an absolute path (C:\...), upload locally via server.js
+            if (finalVideoUrl.includes('\\') || finalVideoUrl.includes('/')) {
+              writeLog('Uploading directly from local server (bypasses 4MB limit)...');
+              const localRes = await fetch('http://localhost:3001/api/upload-local', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filepath: finalVideoUrl })
+              });
+              const localData = await localRes.json();
+              if (localData.url) uploadUrl = localData.url;
+            } else {
+              const uploadRes = await fetch('/api/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ base64: finalVideoUrl, isVideo: true })
+              });
+              const uploadData = await uploadRes.json();
+              if (uploadData.url) uploadUrl = uploadData.url;
+            }
+            
+            if (uploadUrl) {
               writeLog('Saving Video URL to Database...');
-              prod.downloaded_video_path = uploadData.url;
+              prod.downloaded_video_path = uploadUrl;
               await fetch('/api/db/products/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: prod.id, social_link_2: uploadData.url, video_created: true })
+                body: JSON.stringify({ id: prod.id, social_link_2: uploadUrl, video_created: true })
               });
               writeLog(`🎉 Finished Product: ${prod.title}!`);
             }
