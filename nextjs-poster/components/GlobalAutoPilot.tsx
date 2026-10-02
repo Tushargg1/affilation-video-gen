@@ -236,8 +236,14 @@ export default function GlobalAutoPilot() {
             if (res.ok) {
               const data = await res.json();
               if (data.hasResult) {
+                if (data.result.success === false) {
+                  writeLog(`❌ Extension reported an error: ${data.result.error || 'Unknown error'}`);
+                  break;
+                }
                 generatedImageBase64 = data.result.mediaBase64;
-                writeLog('✅ Image generated successfully!');
+                if (generatedImageBase64) {
+                  writeLog('✅ Image generated successfully!');
+                }
                 break;
               }
             }
@@ -336,8 +342,14 @@ export default function GlobalAutoPilot() {
             if (res.ok) {
               const data = await res.json();
               if (data.hasResult) {
+                if (data.result.success === false) {
+                  writeLog(`❌ Extension reported an error: ${data.result.error || 'Unknown error'}`);
+                  break;
+                }
                 finalVideoUrl = data.result.mediaBase64;
-                writeLog('✅ Video generated successfully!');
+                if (finalVideoUrl) {
+                  writeLog('✅ Video generated successfully!');
+                }
                 break;
               }
             }
