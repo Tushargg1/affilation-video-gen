@@ -502,12 +502,23 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     setIsAutomating(false);
   };
 
+  // Statistics Calculations
+  const todayString = new Date().toDateString();
+  const stats = {
+    todayImagePrompts: products.filter(p => p.image_prompt && p.updated_at && new Date(p.updated_at).toDateString() === todayString).length,
+    todayVideoPrompts: products.filter(p => p.video_prompt && p.updated_at && new Date(p.updated_at).toDateString() === todayString).length,
+    todayVideos: products.filter(p => p.video_url && p.updated_at && new Date(p.updated_at).toDateString() === todayString).length,
+    totalImagePrompts: products.filter(p => p.image_prompt).length,
+    totalVideoPrompts: products.filter(p => p.video_prompt).length,
+    totalVideos: products.filter(p => p.video_url).length,
+  };
+
   return (
     <div className="relative bg-white/80 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 mb-10 border border-white/60 overflow-hidden group">
       <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-80"></div>
       <div className="absolute -top-24 -right-24 w-64 h-64 bg-gradient-to-br from-indigo-400/10 to-purple-400/10 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-700"></div>
       
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 relative z-10">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 relative z-10">
         <div>
           <h2 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-indigo-900 to-purple-900 flex items-center gap-3 tracking-tight">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center shadow-inner border border-indigo-50">
@@ -540,12 +551,47 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
             <span className="absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#E2CBFF_0%,#393BB2_50%,#E2CBFF_100%)]" />
             <span className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-slate-950 px-6 py-1 text-sm font-bold text-white backdrop-blur-3xl gap-2">
               {isAutomating ? (
-                <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Running Automation...</>
+                <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Running...</>
               ) : (
                 <>🤖 Start Daily Automation</>
               )}
             </span>
           </button>
+        </div>
+      </div>
+
+      {/* Analytics Dashboard */}
+      <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 bg-white/40 p-4 rounded-2xl border border-white/60 shadow-sm backdrop-blur-sm">
+        <div className="flex flex-col p-3 rounded-xl bg-white/60 border border-slate-100">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Image Prompts</span>
+          <div className="flex items-end gap-2">
+            <span className="text-2xl font-black text-indigo-600">{stats.todayImagePrompts}</span>
+            <span className="text-xs font-semibold text-slate-500 mb-1">today</span>
+          </div>
+          <span className="text-[10px] font-semibold text-slate-400 mt-1">{stats.totalImagePrompts} total historical</span>
+        </div>
+        <div className="flex flex-col p-3 rounded-xl bg-white/60 border border-slate-100">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Video Prompts</span>
+          <div className="flex items-end gap-2">
+            <span className="text-2xl font-black text-purple-600">{stats.todayVideoPrompts}</span>
+            <span className="text-xs font-semibold text-slate-500 mb-1">today</span>
+          </div>
+          <span className="text-[10px] font-semibold text-slate-400 mt-1">{stats.totalVideoPrompts} total historical</span>
+        </div>
+        <div className="flex flex-col p-3 rounded-xl bg-white/60 border border-slate-100">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Finished Videos</span>
+          <div className="flex items-end gap-2">
+            <span className="text-2xl font-black text-emerald-600">{stats.todayVideos}</span>
+            <span className="text-xs font-semibold text-slate-500 mb-1">today</span>
+          </div>
+          <span className="text-[10px] font-semibold text-slate-400 mt-1">{stats.totalVideos} total historical</span>
+        </div>
+        <div className="flex flex-col p-3 rounded-xl bg-slate-900 border border-slate-800">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Daily Target</span>
+          <div className="flex items-end gap-2">
+            <span className="text-2xl font-black text-white">{stats.todayVideos} / {schedulerConfig.daily_target || 4}</span>
+          </div>
+          <span className="text-[10px] font-semibold text-emerald-400 mt-1">Goal completion</span>
         </div>
       </div>
       
