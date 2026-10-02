@@ -218,6 +218,95 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     setIsSending(false);
   };
 
+  const processNextMedia = async () => {
+    setIsSending(true);
+
+    const fetchBase64 = async (url: string) => {
+      try {
+        const res = await fetch('/api/proxy-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+        return data.base64 || null;
+      } catch(e) { return null; }
+    };
+
+    // Priority 1: Needs Video (has video prompt, no video created)
+    const needsVideo = products.find((p: any) => p.image_prompt && p.video_prompt && p.video_created !== 1);
+    
+    if (needsVideo) {
+      setSelectedProductId(needsVideo.id);
+      setStatus({ type: 'info', message: `Found product for Video generation: ${needsVideo.title}` });
+      
+      const imgB64 = await fetchBase64(needsVideo.image_url);
+      
+      if (imgB64) {
+        try {
+          await fetch('http://localhost:3001/api/job', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              target: 'video',
+              imagePrompt: null,
+              videoPrompt: needsVideo.video_prompt,
+              imageBase64: [imgB64]
+            })
+          });
+          alert(`✅ Sent VIDEO generation task for "${needsVideo.title}" to Extension!`);
+        } catch (e) {
+          alert('❌ Failed to connect to local server on port 3001.');
+        }
+      } else {
+        alert('❌ Failed to fetch generated image to use as video reference.');
+      }
+      setIsSending(false);
+      return;
+    }
+
+    // Priority 2: Needs Image (has image prompt, no video prompt)
+    const needsImage = products.find((p: any) => p.image_prompt && !p.video_prompt);
+    if (needsImage) {
+      setSelectedProductId(needsImage.id);
+      setStatus({ type: 'info', message: `Found product for Image generation: ${needsImage.title}` });
+      
+      let mediaPayload: string[] = [];
+      if (needsImage.image_url) {
+        const productImgB64 = await fetchBase64(needsImage.image_url);
+        if (productImgB64) mediaPayload.push(productImgB64);
+      }
+      
+      const globalPhoto = localStorage.getItem('global_model_photo');
+      const mPhoto = needsImage.model_photo_url || globalPhoto;
+      if (mPhoto) {
+        const modelImgB64 = await fetchBase64(mPhoto);
+        if (modelImgB64) mediaPayload.push(modelImgB64);
+      }
+
+      try {
+        await fetch('http://localhost:3001/api/job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            target: 'image',
+            imagePrompt: needsImage.image_prompt,
+            videoPrompt: null,
+            imageBase64: mediaPayload
+          })
+        });
+        alert(`✅ Sent IMAGE generation task for "${needsImage.title}" to Extension!`);
+      } catch (e) {
+        alert('❌ Failed to connect to local server on port 3001.');
+      }
+      setIsSending(false);
+      return;
+    }
+
+    alert('✅ No pending image or video generation tasks found!');
+    setIsSending(false);
+  };
+
   const callGeminiWithFallback = async (promptText: string, imageUrl: string, modelImageUrl: string | null, onStatus: (msg: string, type: 'info'|'warning') => void) => {
     const modelsToTry = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'];
     
@@ -551,6 +640,17 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
             <span className="relative flex items-center justify-center gap-2 text-lg">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
               Generate Image & Video Prompts
+            </span>
+          </button>
+
+          <button 
+            onClick={processNextMedia}
+            disabled={isSending}
+            className="w-full mt-4 relative overflow-hidden border-2 border-indigo-600 text-indigo-700 py-3 rounded-xl font-bold hover:bg-indigo-50 disabled:opacity-50 transition-all active:scale-95 shadow-sm"
+          >
+            <span className="relative flex items-center justify-center gap-2">
+              <span className="text-xl">🤖</span>
+              Process Next Media Task (Image or Video)
             </span>
           </button>
           
