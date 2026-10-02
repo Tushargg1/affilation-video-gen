@@ -525,7 +525,11 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
             </div>
             AI Content Studio
           </h2>
-          <p className="text-slate-500 mt-2 font-medium">Generate cinematic prompts and automate video creation</p>
+          <p className="text-slate-500 mt-2 font-medium mb-3">Generate cinematic prompts and automate video creation</p>
+          <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
+            <span>Start Extension Bridge: <code className="bg-white px-1.5 py-0.5 rounded font-mono text-[10px] shadow-sm ml-1">video gen\start-local-ui.bat</code></span>
+          </div>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <div className="flex items-center gap-3 bg-white/50 backdrop-blur-sm px-4 py-2.5 rounded-full border border-slate-200/60 shadow-sm">
