@@ -132,64 +132,31 @@ export default function GlobalAutoPilot() {
       writeLog(`\n--- Starting Product: ${prod.title} ---`);
       let imgPrompt = prod.image_prompt;
       let vidPrompt = prod.video_prompt;
-      
-      if (!imgPrompt || !vidPrompt) {
-        const imgPromptText = config.base_image_prompt || `Write a highly detailed, professional text-to-image prompt... Return ONLY the final prompt text.`;
-        const vidPromptText = config.base_video_prompt || `Write a highly detailed text-to-video prompt... Return ONLY the final prompt text.`;
+      const imgPromptText = config.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment. Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic. Return ONLY the final prompt text.`;
+      const vidPromptText = config.base_video_prompt || `Write a highly detailed text-to-video prompt for a product showcase video. The video must be exactly 10 seconds long. Describe smooth, premium camera movements. Include keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase. Return ONLY the final prompt text.`;
 
-        // 1. Generate Image Prompt
-        let imgData;
-        if (!imgPrompt) {
-          writeLog(`[Image Prompt] Generating via 3.8-flash...`);
-          imgData = await callGeminiWithInfiniteFallback(
-            imgPromptText, 
-            prod.image_url, 
-            prod.model_photo_url || localStorage.getItem('global_model_photo'), 
-            '[Image Prompt]'
-          );
-          imgPrompt = imgData.text;
-          
-          // Save Image Prompt to DB immediately
-          await fetch('/api/db/products/update-prompt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              id: prod.id, 
-              image_prompt: imgPrompt,
-              used_model: imgData.usedModel || 'gemini-3.8-flash'
-            })
-          });
-        }
-
-        if (!vidPrompt) {
-          writeLog('Waiting 8 seconds before generating Video Prompt...');
-          await new Promise(r => setTimeout(r, 8000));
-
-          // 2. Generate Video Prompt
-          const vidData = await callGeminiWithInfiniteFallback(
-            vidPromptText, 
-            prod.image_url, 
-            null, 
-            '[Video Prompt]'
-          );
-          vidPrompt = vidData.text;
-          
-          // Save Video Prompt to DB immediately
-          await fetch('/api/db/products/update-prompt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              id: prod.id, 
-              video_prompt: vidPrompt,
-              used_model: vidData.usedModel || 'gemini-3.8-flash'
-            })
-          });
-        }
+      // ─── STEP 1: Generate Image Prompt text ──────────────────────────
+      if (!imgPrompt) {
+        const imgData = await callGeminiWithInfiniteFallback(
+          imgPromptText,
+          prod.image_url,
+          prod.model_photo_url || localStorage.getItem('global_model_photo'),
+          '[Image Prompt]'
+        );
+        imgPrompt = imgData.text;
+        writeLog(`✅ Image Prompt saved!`);
+        await fetch('/api/db/products/update-prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: prod.id, image_prompt: imgPrompt, used_model: imgData.usedModel })
+        });
+      } else {
+        writeLog(`[Image Prompt] Already exists, skipping generation.`);
       }
 
-      // Convert Product Photo URL to Base64
-      writeLog('Converting product image to Base64...');
-      let productImgBase64 = null;
+      // ─── STEP 2: Convert product photo to base64 for the extension ───
+      writeLog('Preparing product image for extension...');
+      let productImgBase64: any = null;
       if (prod.image_url) {
         try {
           const res = await fetch(prod.image_url);
@@ -199,14 +166,12 @@ export default function GlobalAutoPilot() {
             reader.onloadend = () => resolve(reader.result);
             reader.readAsDataURL(blob);
           });
-        } catch(e) { }
+        } catch(e) { writeLog('Warning: Could not load product image.'); }
       }
 
-      // CLEAR any old result from the bridge first
+      // ─── STEP 3: Send IMAGE PROMPT to extension → generate actual image ───
       try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
-
-      // Send IMAGE job to extension
-      writeLog('Sending Image Job to extension...');
+      writeLog('Sending Image Prompt to extension to generate the image...');
       try {
         await fetch('http://localhost:3001/api/job', {
           method: 'POST',
@@ -215,12 +180,12 @@ export default function GlobalAutoPilot() {
         });
       } catch(e) {
         writeLog('❌ Bridge server offline! Make sure node server.js is running on port 3001.');
-        break; // Bridge offline
+        break;
       }
 
-      // Poll for Image Job result
-      writeLog('Waiting for Image Generation... (Takes a few minutes)');
-      let finalImageBase64 = null;
+      // Poll for generated image
+      writeLog('Waiting for Image to be generated... (Takes a few minutes)');
+      let generatedImageBase64: string | null = null;
       while (true) {
         await new Promise(r => setTimeout(r, 5000));
         try {
@@ -228,38 +193,61 @@ export default function GlobalAutoPilot() {
           if (res.ok) {
             const data = await res.json();
             if (data.hasResult) {
-              writeLog('✅ Image generation complete!');
-              finalImageBase64 = data.result.mediaBase64;
+              generatedImageBase64 = data.result.mediaBase64;
+              writeLog('✅ Image generated successfully!');
               break;
             }
           }
         } catch(e) { }
       }
 
-      if (!finalImageBase64) continue;
+      if (!generatedImageBase64) {
+        writeLog('❌ Failed to get generated image. Skipping to next product.');
+        continue;
+      }
 
-      // Send VIDEO job to extension
-      writeLog('Sending Video Job to extension...');
-      let videoBase64Array = [];
-      if (finalImageBase64) videoBase64Array.push(finalImageBase64);
-      if (productImgBase64) videoBase64Array.push(productImgBase64);
+      // ─── STEP 4: Use the GENERATED IMAGE to create Video Prompt text ──
+      if (!vidPrompt) {
+        writeLog('Waiting 5 seconds before generating Video Prompt using the new image...');
+        await new Promise(r => setTimeout(r, 5000));
 
+        // Convert the generated image base64 to a data URL if needed for Gemini
+        const vidData = await callGeminiWithInfiniteFallback(
+          vidPromptText,
+          prod.image_url, // still pass original for context
+          null,
+          '[Video Prompt]'
+        );
+        vidPrompt = vidData.text;
+        writeLog(`✅ Video Prompt saved!`);
+        await fetch('/api/db/products/update-prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: prod.id, video_prompt: vidPrompt, used_model: vidData.usedModel })
+        });
+      } else {
+        writeLog(`[Video Prompt] Already exists, skipping generation.`);
+      }
+
+      // ─── STEP 5: Send VIDEO PROMPT + generated image to extension → generate video ───
       try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
-
+      writeLog('Sending Video Prompt + generated image to extension to create the video...');
       try {
+        // Pass the generated image as context for the video
+        const videoInputImages = [generatedImageBase64, productImgBase64].filter(Boolean);
         await fetch('http://localhost:3001/api/job', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imagePrompt: '', videoPrompt: vidPrompt, imageBase64: videoBase64Array })
+          body: JSON.stringify({ imagePrompt: '', videoPrompt: vidPrompt, imageBase64: videoInputImages })
         });
       } catch(e) {
         writeLog('❌ Bridge server offline!');
         break;
       }
 
-      // Poll for Video Job result
-      writeLog('Waiting for Video Generation... (Takes a few minutes)');
-      let finalVideoUrl = null;
+      // Poll for generated video
+      writeLog('Waiting for Video to be generated... (Takes a few minutes)');
+      let finalVideoUrl: string | null = null;
       while (true) {
         await new Promise(r => setTimeout(r, 5000));
         try {
@@ -267,15 +255,15 @@ export default function GlobalAutoPilot() {
           if (res.ok) {
             const data = await res.json();
             if (data.hasResult) {
-              writeLog('✅ Video generation complete!');
-              finalVideoUrl = data.result.mediaBase64; // actually Vercel Blob URL from extension
+              finalVideoUrl = data.result.mediaBase64;
+              writeLog('✅ Video generated successfully!');
               break;
             }
           }
         } catch(e) { }
       }
 
-      // Save Video URL and Mark Completed
+      // ─── STEP 6: Save Video URL to DB ────────────────────────────────
       if (finalVideoUrl) {
         writeLog('Saving Video URL to Database...');
         await fetch('/api/db/products/update', {
@@ -286,12 +274,11 @@ export default function GlobalAutoPilot() {
         writeLog(`🎉 Finished Product: ${prod.title}!`);
       }
 
-      // Delay before next product
       writeLog('Waiting 15 seconds before processing the next product...');
       await new Promise(r => setTimeout(r, 15000));
     }
     writeLog('\n✅ Daily Automation Complete! All products processed.');
   };
 
-  return null; // This component is invisible!
+  return null;
 }
