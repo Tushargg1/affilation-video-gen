@@ -66,6 +66,13 @@ export default function GlobalAutoPilot() {
       }
       
       if (isAutomatingRef.current) return;
+      
+      // Cross-tab / React Strict Mode concurrency lock
+      const lastLock = parseInt(localStorage.getItem('digen_lock_timestamp') || '0');
+      // If another tab/instance updated the lock within the last 15 seconds, don't run!
+      if (Date.now() - lastLock < 15000 && localStorage.getItem('digen_is_running') === 'true') {
+          return;
+      }
 
       isAutomatingRef.current = true;
       localStorage.setItem('digen_is_running', 'true');
@@ -133,6 +140,9 @@ export default function GlobalAutoPilot() {
     writeLog(`Found ${pendingProducts.length} pending products. Daily Quota remaining: ${remainingQuota}. Starting generation...`);
 
     for (const prod of pendingProducts) {
+      // Keep lock alive at start of each product
+      localStorage.setItem('digen_lock_timestamp', Date.now().toString());
+
       if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
       writeLog(`\n--- Starting Product: ${prod.title} ---`);
       let imgPrompt = prod.image_prompt;
@@ -211,6 +221,9 @@ export default function GlobalAutoPilot() {
       writeLog('Waiting for Image to be generated... (Takes a few minutes)');
       let generatedImageBase64: string | null = null;
       while (true) {
+        // Keep the lock alive while waiting
+        localStorage.setItem('digen_lock_timestamp', Date.now().toString());
+        
         if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
         await new Promise(r => setTimeout(r, 5000));
         try {
@@ -231,6 +244,9 @@ export default function GlobalAutoPilot() {
         writeLog('❌ Failed to get generated image. Skipping to next product.');
         continue;
       }
+
+      // Keep lock alive before video prompt
+      localStorage.setItem('digen_lock_timestamp', Date.now().toString());
 
       // ─── STEP 4: Use the GENERATED IMAGE to create Video Prompt text ──
       if (!vidPrompt) {
