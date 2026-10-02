@@ -39,11 +39,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   </span>
                 </div>
                 <div className="hidden sm:flex sm:space-x-1">
-                  <a href="/" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200">
+                  <a href="/" className="px-4 py-2 rounded-full text-sm font-bold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200">
                     Dashboard
                   </a>
-                  <a href="/products" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200">
-                    Gallery
+                  <a href="/poster" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
+                    <span>📅</span> Auto-Poster
+                  </a>
+                  <a href="/studio" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
+                    <span>✨</span> AI Studio
+                  </a>
+                  <a href="/database" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
+                    <span>🗄️</span> Database
+                  </a>
+                  <a href="/products" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
+                    <span>🖼️</span> Gallery
                   </a>
                 </div>
               </div>
