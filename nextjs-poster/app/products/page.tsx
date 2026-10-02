@@ -13,13 +13,24 @@ export default function ProductsGallery() {
     setExpandedPrompts(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleDeleteMedia = async (id: string) => {
-    if (!confirm('Are you sure you want to delete the generated media for this product?')) return;
+  const handleDeleteMedia = async (id: string, imagePath: string | null, videoPath: string | null) => {
+    if (!confirm('Are you sure you want to permanently delete the generated media for this product?')) return;
     
     // Optimistic UI update
     setProducts(prev => prev.map(p => p.id === id ? { ...p, downloaded_image_path: null, downloaded_video_path: null } : p));
     
     try {
+      // 1. Permanently delete from Vercel Blob
+      const urlsToDelete = [imagePath, videoPath].filter(Boolean);
+      if (urlsToDelete.length > 0) {
+        await fetch('/api/vercel-blobs/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls: urlsToDelete })
+        });
+      }
+
+      // 2. Unlink from Database
       await fetch('/api/db/products/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -328,9 +339,9 @@ export default function ProductsGallery() {
                         OUTPUT MEDIA
                       </div>
                       <button 
-                        onClick={() => handleDeleteMedia(product.id)}
+                        onClick={() => handleDeleteMedia(product.id, product.downloaded_image_path, product.downloaded_video_path)}
                         className="absolute bottom-3 right-3 bg-red-600/80 hover:bg-red-500 backdrop-blur-md border border-white/20 text-white text-[11px] font-bold px-3 py-2 rounded-xl shadow-lg transition-colors flex items-center gap-1 z-20"
-                        title="Delete Generated Media"
+                        title="Permanently Delete Generated Media"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         Delete Media

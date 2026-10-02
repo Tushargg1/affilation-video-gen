@@ -8,7 +8,7 @@ export default function RawDataPage() {
   const [loadingBlobs, setLoadingBlobs] = useState(true);
 
   useEffect(() => {
-    fetch('/api/db/products')
+    fetch(`/api/db/products?t=${Date.now()}`)
       .then(res => res.json())
       .then(d => {
         if (d.products) {
@@ -20,7 +20,7 @@ export default function RawDataPage() {
       .catch(e => console.error(e))
       .finally(() => setLoading(false));
 
-    fetch('/api/vercel-blobs')
+    fetch(`/api/vercel-blobs?t=${Date.now()}`)
       .then(res => res.json())
       .then(d => {
         if (d.blobs) setBlobs(d.blobs);
@@ -28,6 +28,24 @@ export default function RawDataPage() {
       .catch(e => console.error(e))
       .finally(() => setLoadingBlobs(false));
   }, []);
+
+  const handleDeleteBlob = async (url: string) => {
+    if (!confirm('Are you sure you want to permanently delete this file from Vercel? This cannot be undone.')) return;
+    
+    // Optimistic UI update
+    setBlobs(prev => prev.filter(b => b.url !== url));
+    
+    try {
+      await fetch('/api/vercel-blobs/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: [url] })
+      });
+    } catch (e) {
+      console.error(e);
+      alert('Failed to delete blob');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -80,10 +98,17 @@ export default function RawDataPage() {
                     <span className="text-xs font-mono text-slate-500 truncate" title={blob.url}>
                       <a href={blob.url} target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline">{blob.url}</a>
                     </span>
-                    <div className="flex justify-between items-center mt-2 text-xs text-slate-400 font-semibold">
+                    <div className="flex justify-between items-center mt-3 text-xs text-slate-400 font-semibold">
                       <span>{(blob.size / 1024 / 1024).toFixed(2)} MB</span>
                       <span>{new Date(blob.uploadedAt).toLocaleDateString()}</span>
                     </div>
+                    <button 
+                      onClick={() => handleDeleteBlob(blob.url)}
+                      className="mt-3 w-full bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 font-bold py-2 rounded-lg border border-red-100 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      Delete Permanently
+                    </button>
                   </div>
                 </div>
               ))}
