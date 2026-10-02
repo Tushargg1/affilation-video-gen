@@ -228,14 +228,11 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   };
 
   const callGeminiWithFallback = async (promptText: string, imageUrl: string, modelImageUrl: string | null, onStatus: (msg: string, type: 'info'|'warning') => void) => {
-    const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-pro-vision'];
+    const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash-8b'];
     
     for (let i = 0; i < modelsToTry.length; i++) {
       const currentModel = modelsToTry[i];
-      if (i > 0) {
-        onStatus(`Model ${modelsToTry[i-1].replace('gemini-', '')} failed... Waiting 2s, then trying ${currentModel.replace('gemini-', '')}...`, 'warning');
-        await new Promise(r => setTimeout(r, 2000));
-      } else {
+      if (i === 0) {
         onStatus(`Generating via ${currentModel.replace('gemini-', '')}...`, 'info');
       }
 
@@ -253,9 +250,13 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       
       if (res.ok) return resData;
       
+      onStatus(`Model ${currentModel.replace('gemini-', '')} failed: ${resData.error}`, 'warning');
+      
       if (i === modelsToTry.length - 1) {
         throw new Error(resData.error || 'All fallback models failed.');
       }
+      
+      await new Promise(r => setTimeout(r, 2000));
     }
   };
 
@@ -369,8 +370,8 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
           imgPrompt = imgData.text;
 
           // 2. Short delay before Video Prompt to avoid hitting RPM limit
-          log('Waiting 2 seconds before generating Video Prompt to respect API limits...');
-          await new Promise(r => setTimeout(r, 2000));
+          log('Waiting 8 seconds before generating Video Prompt to respect API limits...');
+          await new Promise(r => setTimeout(r, 8000));
 
           // 3. Generate Video Prompt
           const vidData = await callGeminiWithFallback(
@@ -512,6 +513,9 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
         } catch(e: any) {
           log(`❌ Failed to upload final media: ${e.message}`);
         }
+
+        log('Waiting 15 seconds before processing the next product to avoid rate limits...');
+        await new Promise(r => setTimeout(r, 15000));
       }
       
       log('\n✅ Daily Automation Complete! All products processed.');
