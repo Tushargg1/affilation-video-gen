@@ -13,28 +13,34 @@ export default function ProductsGallery() {
     setExpandedPrompts(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleDeleteMedia = async (id: string, imagePath: string | null, videoPath: string | null) => {
-    if (!confirm('Are you sure you want to permanently delete the generated media for this product?')) return;
+  const handleDeleteMedia = async (id: string, type: 'image' | 'video', mediaPath: string | null) => {
+    if (!mediaPath) return;
+    if (!confirm(`Are you sure you want to permanently delete the generated ${type} for this product?`)) return;
     
     // Optimistic UI update
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, downloaded_image_path: null, downloaded_video_path: null } : p));
+    if (type === 'image') {
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, downloaded_image_path: null } : p));
+    } else {
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, downloaded_video_path: null } : p));
+    }
     
     try {
       // 1. Permanently delete from Vercel Blob
-      const urlsToDelete = [imagePath, videoPath].filter(Boolean);
-      if (urlsToDelete.length > 0) {
-        await fetch('/api/vercel-blobs/delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ urls: urlsToDelete })
-        });
-      }
+      await fetch('/api/vercel-blobs/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: [mediaPath] })
+      });
 
       // 2. Unlink from Database
+      const updatePayload: any = { id };
+      if (type === 'image') updatePayload.social_link_1 = null;
+      if (type === 'video') updatePayload.social_link_2 = null;
+      
       await fetch('/api/db/products/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, social_link_1: null, social_link_2: null }) 
+        body: JSON.stringify(updatePayload) 
       });
       fetchProducts();
     } catch (e) {
@@ -317,50 +323,72 @@ export default function ProductsGallery() {
                     </div>
                   ) : (
                     <div className="flex flex-col w-full h-full">
-                      {product.downloaded_image_path && (
-                        <div className={`${product.downloaded_video_path ? 'h-1/2' : 'h-full'} w-full border-b border-white/10 relative group/img`}>
-                          <img src={product.downloaded_image_path} alt="Generated Image" className="w-full h-full object-cover" />
-                          <div className="absolute top-2 left-2 bg-black/40 backdrop-blur-md text-white text-[9px] font-bold px-2 py-1 rounded shadow pointer-events-none">IMAGE</div>
-                        </div>
-                      )}
-                      
-                      {product.downloaded_video_path && (
-                        <div className={`${product.downloaded_image_path ? 'h-1/2' : 'h-full'} w-full relative group/vid`}>
-                          {product.downloaded_video_path.endsWith('.mp4') || product.downloaded_video_path.endsWith('.webm') ? (
-                            <video src={product.downloaded_video_path} autoPlay loop muted playsInline className="w-full h-full object-cover" />
-                          ) : (
-                            <img src={product.downloaded_video_path} alt="Generated Video Media" className="w-full h-full object-cover" />
-                          )}
-                          <div className="absolute top-2 left-2 bg-black/40 backdrop-blur-md text-white text-[9px] font-bold px-2 py-1 rounded shadow pointer-events-none">VIDEO</div>
-                        </div>
-                      )}
-
-                      {!product.downloaded_image_path && !product.downloaded_video_path && (
-                        <div className="text-center p-6 flex flex-col items-center justify-center h-full w-full bg-gradient-to-b from-slate-800 to-slate-900">
-                          <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4 shadow-inner border border-slate-700">
-                            <span className="text-2xl animate-pulse">⏳</span>
+                      {/* IMAGE SLOT — always rendered as top half */}
+                      <div className="h-1/2 w-full border-b border-white/10 relative group/img">
+                        {product.downloaded_image_path ? (
+                          <>
+                            <img src={product.downloaded_image_path} alt="Generated Image" className="w-full h-full object-cover" />
+                            <div className="absolute top-2 left-2 bg-black/40 backdrop-blur-md text-white text-[9px] font-bold px-2 py-1 rounded shadow pointer-events-none">IMAGE</div>
+                            {!product.is_posted && (
+                              <button
+                                onClick={() => handleDeleteMedia(product.id, 'image', product.downloaded_image_path)}
+                                className="absolute top-2 right-2 bg-red-600/80 hover:bg-red-500 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg transition-all flex items-center gap-1 z-20 opacity-0 group-hover/img:opacity-100"
+                                title="Delete Generated Image"
+                              >
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                Delete Image
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-to-b from-slate-800 to-slate-900/80 gap-2">
+                            <div className="w-10 h-10 rounded-full bg-slate-700/60 flex items-center justify-center border border-slate-600">
+                              <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            </div>
+                            <div className="text-[11px] font-semibold text-slate-400 tracking-wide">No Image Media</div>
+                            <div className="absolute top-2 left-2 bg-black/30 backdrop-blur-md text-white/50 text-[9px] font-bold px-2 py-1 rounded shadow pointer-events-none">IMAGE</div>
                           </div>
-                          <div className="text-sm font-semibold text-slate-300">Awaiting Automation</div>
-                          <div className="text-xs text-slate-500 mt-2">Media will appear here automatically.</div>
-                        </div>
-                      )}
+                        )}
+                      </div>
+
+                      {/* VIDEO SLOT — always rendered as bottom half */}
+                      <div className="h-1/2 w-full relative group/vid">
+                        {product.downloaded_video_path ? (
+                          <>
+                            {product.downloaded_video_path.endsWith('.mp4') || product.downloaded_video_path.endsWith('.webm') ? (
+                              <video src={product.downloaded_video_path} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                            ) : (
+                              <img src={product.downloaded_video_path} alt="Generated Video Media" className="w-full h-full object-cover" />
+                            )}
+                            <div className="absolute top-2 left-2 bg-black/40 backdrop-blur-md text-white text-[9px] font-bold px-2 py-1 rounded shadow pointer-events-none">VIDEO</div>
+                            {!product.is_posted && (
+                              <button
+                                onClick={() => handleDeleteMedia(product.id, 'video', product.downloaded_video_path)}
+                                className="absolute top-2 right-2 bg-red-600/80 hover:bg-red-500 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg transition-all flex items-center gap-1 z-20 opacity-0 group-hover/vid:opacity-100"
+                                title="Delete Generated Video"
+                              >
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                Delete Video
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-full w-full bg-gradient-to-b from-slate-900/80 to-slate-900 gap-2">
+                            <div className="w-10 h-10 rounded-full bg-slate-700/60 flex items-center justify-center border border-slate-600">
+                              <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            </div>
+                            <div className="text-[11px] font-semibold text-slate-400 tracking-wide">No Video Media</div>
+                            <div className="absolute top-2 left-2 bg-black/30 backdrop-blur-md text-white/50 text-[9px] font-bold px-2 py-1 rounded shadow pointer-events-none">VIDEO</div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                   
-                  {(product.downloaded_video_path || product.downloaded_image_path) && !product.is_posted && (
-                    <>
-                      <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg pointer-events-none">
-                        OUTPUT MEDIA
-                      </div>
-                      <button 
-                        onClick={() => handleDeleteMedia(product.id, product.downloaded_image_path, product.downloaded_video_path)}
-                        className="absolute bottom-3 right-3 bg-red-600/80 hover:bg-red-500 backdrop-blur-md border border-white/20 text-white text-[11px] font-bold px-3 py-2 rounded-xl shadow-lg transition-colors flex items-center gap-1 z-20"
-                        title="Permanently Delete Generated Media"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        Delete Media
-                      </button>
-                    </>
+                  {!product.is_posted && (
+                    <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg pointer-events-none">
+                      OUTPUT MEDIA
+                    </div>
                   )}
                   
                   {/* Manual Ticks */}
