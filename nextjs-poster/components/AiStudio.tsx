@@ -313,14 +313,21 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       }
 
       // 2. Find pending products up to the remaining quota
-      const pendingProducts = products.filter(p => !p.video_url).slice(0, remainingQuota);
+      // Restrict automation strictly to the currently selected category in the UI
+      const sourceProducts = selectedCategory 
+        ? products.filter(p => (p.category || 'Uncategorized') === selectedCategory)
+        : products;
+
+      const pendingProducts = sourceProducts.filter(p => !p.video_url).slice(0, remainingQuota);
       if (pendingProducts.length === 0) {
-        log("No pending products to process today! Please add more products.");
+        log(selectedCategory 
+          ? `No pending products to process in category: ${selectedCategory}!`
+          : "No pending products to process today! Please add more products.");
         setIsAutomating(false);
         return;
       }
 
-      log(`Found ${pendingProducts.length} pending products. Daily Quota remaining: ${remainingQuota}. Starting generation...`);
+      log(`Found ${pendingProducts.length} pending products in ${selectedCategory || 'all categories'}. Daily Quota remaining: ${remainingQuota}. Starting generation...`);
 
       for (const prod of pendingProducts) {
         log(`\n--- Starting Product: ${prod.title} ---`);
