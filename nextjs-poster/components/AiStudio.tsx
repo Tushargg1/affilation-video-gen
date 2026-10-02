@@ -6,11 +6,15 @@ import { upload } from '@vercel/blob/client';
 export default function AiStudio({ products, schedulerConfig }: { products: any[], schedulerConfig: any }) {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
+  const [selectionStrategy, setSelectionStrategy] = useState<string>('highest_reviews');
   
   // Load from localStorage on mount
   useEffect(() => {
     const savedCat = localStorage.getItem('ai_studio_category');
     const savedProdId = localStorage.getItem('ai_studio_product_id');
+    const savedStrategy = localStorage.getItem('ai_studio_sort_strategy');
+    
+    if (savedStrategy) setSelectionStrategy(savedStrategy);
     if (savedCat) setSelectedCategory(savedCat);
     if (savedProdId) {
       const id = parseInt(savedProdId);
@@ -101,6 +105,23 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   const categories = Array.from(new Set(products.map(p => p.category || 'Uncategorized').filter(Boolean)));
   const categoryProducts = products.filter(p => (p.category || 'Uncategorized') === selectedCategory);
   const selectedProduct = products.find(p => p.id === selectedProductId);
+
+  const parseReviews = (rev: string) => parseInt((rev || '0').toString().replace(/[^0-9]/g, '')) || 0;
+  const parseRating = (rate: string) => parseFloat((rate || '0')) || 0;
+  const parsePrice = (price: any) => parseFloat((price || '0').toString().replace(/[^0-9.]/g, '')) || 0;
+
+  const getSortedPendingProducts = (cat: string, strat: string) => {
+    // Only select products whose prompts are not fully created yet
+    const pending = products.filter(p => (p.category || 'Uncategorized') === cat && (!p.image_prompt || !p.video_prompt));
+    
+    return pending.sort((a, b) => {
+      if (strat === 'highest_reviews') return parseReviews(b.reviews) - parseReviews(a.reviews);
+      if (strat === 'highest_rating') return parseRating(b.rating) - parseRating(a.rating);
+      if (strat === 'lowest_price') return parsePrice(a.price) - parsePrice(b.price);
+      if (strat === 'highest_price') return parsePrice(b.price) - parsePrice(a.price);
+      return b.id - a.id; 
+    });
+  };
 
   // Update existing product if it already has prompts in DB
   const handleProductSelect = (id: number) => {
@@ -313,12 +334,10 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       }
 
       // 2. Find pending products up to the remaining quota
-      // Restrict automation strictly to the currently selected category in the UI
-      const sourceProducts = selectedCategory 
-        ? products.filter(p => (p.category || 'Uncategorized') === selectedCategory)
-        : products;
+      // Restrict automation strictly to the currently selected category in the UI and sort them by our chosen strategy!
+      const sortedQueue = getSortedPendingProducts(selectedCategory || 'Uncategorized', selectionStrategy);
 
-      const pendingProducts = sourceProducts.filter(p => !p.video_url).slice(0, remainingQuota);
+      const pendingProducts = sortedQueue.slice(0, remainingQuota);
       if (pendingProducts.length === 0) {
         log(selectedCategory 
           ? `No pending products to process in category: ${selectedCategory}!`
@@ -627,9 +646,9 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
               onChange={e => {
                 const cat = e.target.value;
                 setSelectedCategory(cat);
-                const firstProduct = products.find(p => (p.category || 'Uncategorized') === cat);
-                if (firstProduct) {
-                  handleProductSelect(firstProduct.id);
+                const sorted = getSortedPendingProducts(cat, selectionStrategy);
+                if (sorted.length > 0) {
+                  handleProductSelect(sorted[0].id);
                 } else {
                   setSelectedProductId('');
                 }
@@ -641,18 +660,43 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
           </div>
           
           <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Product</label>
+            <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Prioritize By</label>
             <select 
               className="w-full p-3.5 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white/50 backdrop-blur-sm transition-all text-slate-700 font-medium"
-              value={selectedProductId}
-              onChange={e => handleProductSelect(Number(e.target.value))}
+              value={selectionStrategy}
+              onChange={e => {
+                const strat = e.target.value;
+                setSelectionStrategy(strat);
+                localStorage.setItem('ai_studio_sort_strategy', strat);
+                
+                const sorted = getSortedPendingProducts(selectedCategory, strat);
+                if (sorted.length > 0) {
+                  handleProductSelect(sorted[0].id);
+                } else {
+                  setSelectedProductId('');
+                }
+              }}
               disabled={!selectedCategory}
             >
-              <option value="">-- Select Product --</option>
-              {categoryProducts.map(p => (
-                <option key={p.id} value={p.id}>{p.title} (₹{p.price})</option>
-              ))}
+              <option value="highest_reviews">Highest Reviews First</option>
+              <option value="highest_rating">Highest Rating First</option>
+              <option value="lowest_price">Lowest Price First</option>
+              <option value="highest_price">Highest Price First</option>
+              <option value="newest">Newest Extracted First</option>
             </select>
+            
+            {selectedProduct ? (
+              <div className="mt-4 text-sm p-3.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-900 shadow-sm flex flex-col transition-all">
+                <span className="font-extrabold text-[10px] tracking-widest text-indigo-400 uppercase mb-1">Queue Top</span>
+                <span className="font-semibold truncate">{selectedProduct.title}</span>
+                <span className="opacity-70 mt-1 font-medium text-xs">₹{selectedProduct.price} • ⭐ {selectedProduct.rating || 'N/A'} • {selectedProduct.reviews || '0 reviews'}</span>
+              </div>
+            ) : selectedCategory ? (
+               <div className="mt-4 text-sm p-3.5 bg-slate-100/80 border border-slate-200 rounded-xl text-slate-500 font-medium flex items-center gap-2">
+                 <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                 All prompts created for this category!
+               </div>
+            ) : null}
           </div>
 
           <div className="pt-2">
