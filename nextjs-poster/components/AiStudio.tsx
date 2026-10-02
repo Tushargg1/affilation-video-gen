@@ -336,10 +336,10 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
           if (uploadData.url) {
             setStatus({ type: 'info', message: `Upload complete! Saving to database...` });
             
-            // Update Database
+            // Update Database (Note: The backend expects social_link_2 to update the video_url column which stores BOTH image and video outputs!)
             const payload = type === 'image' 
-              ? { id: productId, generated_image_url: uploadData.url }
-              : { id: productId, video_url: uploadData.url, video_created: true };
+              ? { id: productId, social_link_2: uploadData.url }
+              : { id: productId, social_link_2: uploadData.url, video_created: true };
               
             await fetch('/api/db/products/update', {
               method: 'POST',

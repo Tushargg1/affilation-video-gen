@@ -315,7 +315,7 @@ export default function GlobalAutoPilot() {
         await fetch('/api/db/products/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: prod.id, video_url: finalVideoUrl, video_created: true })
+          body: JSON.stringify({ id: prod.id, social_link_2: finalVideoUrl, video_created: true })
         });
         writeLog(`🎉 Finished Product: ${prod.title}!`);
       }
