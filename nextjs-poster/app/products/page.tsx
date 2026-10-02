@@ -6,6 +6,31 @@ export default function ProductsGallery() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ALL');
+  const [expandedPrompts, setExpandedPrompts] = useState<Record<string, boolean>>({});
+
+  const togglePrompt = (id: string, type: string) => {
+    const key = `${id}_${type}`;
+    setExpandedPrompts(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleDeleteMedia = async (id: string) => {
+    if (!confirm('Are you sure you want to delete the generated media for this product?')) return;
+    
+    // Optimistic UI update
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, downloaded_image_path: null, downloaded_video_path: null } : p));
+    
+    try {
+      await fetch('/api/db/products/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, social_link_1: null, social_link_2: null }) 
+      });
+      fetchProducts();
+    } catch (e) {
+      console.error(e);
+      alert('Failed to delete media');
+    }
+  };
 
   const fetchProducts = () => {
     fetch(`/api/db/products?t=${new Date().getTime()}`)
@@ -204,9 +229,19 @@ export default function ProductsGallery() {
                         </button>
                       )}
                     </div>
-                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words">
-                      {product.image_prompt || <span className="italic text-slate-400">No image prompt generated yet.</span>}
-                    </p>
+                    <div className="relative">
+                      <p className={`text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words ${!expandedPrompts[`${product.id}_image`] ? 'line-clamp-4' : ''}`}>
+                        {product.image_prompt || <span className="italic text-slate-400">No image prompt generated yet.</span>}
+                      </p>
+                      {product.image_prompt && product.image_prompt.length > 200 && (
+                        <button 
+                          onClick={() => togglePrompt(product.id, 'image')}
+                          className="mt-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                        >
+                          {expandedPrompts[`${product.id}_image`] ? 'Show Less' : 'Read More...'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-slate-100 shadow-inner h-full hover:bg-white/80 transition-colors duration-300">
@@ -228,9 +263,19 @@ export default function ProductsGallery() {
                         </button>
                       )}
                     </div>
-                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words">
-                      {product.video_prompt || <span className="italic text-slate-400">No video prompt generated yet.</span>}
-                    </p>
+                    <div className="relative">
+                      <p className={`text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words ${!expandedPrompts[`${product.id}_video`] ? 'line-clamp-4' : ''}`}>
+                        {product.video_prompt || <span className="italic text-slate-400">No video prompt generated yet.</span>}
+                      </p>
+                      {product.video_prompt && product.video_prompt.length > 200 && (
+                        <button 
+                          onClick={() => togglePrompt(product.id, 'video')}
+                          className="mt-2 text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors"
+                        >
+                          {expandedPrompts[`${product.id}_video`] ? 'Show Less' : 'Read More...'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   
                   {product.updated_at && (
@@ -242,7 +287,7 @@ export default function ProductsGallery() {
                 </div>
 
                 {/* Generated Media Section */}
-                <div className="xl:w-1/4 shrink-0 flex flex-col items-center justify-center bg-slate-900 rounded-2xl overflow-hidden relative min-h-[300px] shadow-lg group-hover:shadow-2xl transition-shadow duration-500">
+                <div className="xl:w-1/4 shrink-0 flex flex-col items-center justify-center bg-slate-900 rounded-2xl overflow-hidden relative min-h-[300px] max-h-[500px] shadow-lg group-hover:shadow-2xl transition-shadow duration-500">
                   {product.is_posted ? (
                     <div className="flex flex-col gap-4 w-full p-6 text-center">
                       <div className="text-xl font-bold text-white mb-2">🎉 Posted Successfully!</div>
@@ -276,10 +321,21 @@ export default function ProductsGallery() {
                       <div className="text-xs text-slate-500 mt-2">Media will appear here automatically.</div>
                     </div>
                   )}
+                  
                   {(product.downloaded_video_path || product.downloaded_image_path) && !product.is_posted && (
-                    <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg">
-                      OUTPUT MEDIA
-                    </div>
+                    <>
+                      <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg pointer-events-none">
+                        OUTPUT MEDIA
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteMedia(product.id)}
+                        className="absolute bottom-3 right-3 bg-red-600/80 hover:bg-red-500 backdrop-blur-md border border-white/20 text-white text-[11px] font-bold px-3 py-2 rounded-xl shadow-lg transition-colors flex items-center gap-1 z-20"
+                        title="Delete Generated Media"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        Delete Media
+                      </button>
+                    </>
                   )}
                   
                   {/* Manual Ticks */}
