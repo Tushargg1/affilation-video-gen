@@ -315,21 +315,35 @@ export default function ProductsGallery() {
                         </a>
                       )}
                     </div>
-                  ) : product.downloaded_video_path ? (
-                    product.downloaded_video_path.endsWith('.mp4') || product.downloaded_video_path.endsWith('.webm') ? (
-                      <video src={product.downloaded_video_path} controls className="w-full h-full object-cover" />
-                    ) : (
-                      <img src={product.downloaded_video_path} alt="Generated Media" className="w-full h-full object-cover" />
-                    )
-                  ) : product.downloaded_image_path ? (
-                      <img src={product.downloaded_image_path} alt="Generated Image" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="text-center p-6 flex flex-col items-center justify-center h-full w-full bg-gradient-to-b from-slate-800 to-slate-900">
-                      <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4 shadow-inner border border-slate-700">
-                        <span className="text-2xl animate-pulse">⏳</span>
-                      </div>
-                      <div className="text-sm font-semibold text-slate-300">Awaiting Automation</div>
-                      <div className="text-xs text-slate-500 mt-2">Media will appear here automatically.</div>
+                    <div className="flex flex-col w-full h-full">
+                      {product.downloaded_image_path && (
+                        <div className={`${product.downloaded_video_path ? 'h-1/2' : 'h-full'} w-full border-b border-white/10 relative group/img`}>
+                          <img src={product.downloaded_image_path} alt="Generated Image" className="w-full h-full object-cover" />
+                          <div className="absolute top-2 left-2 bg-black/40 backdrop-blur-md text-white text-[9px] font-bold px-2 py-1 rounded shadow pointer-events-none">IMAGE</div>
+                        </div>
+                      )}
+                      
+                      {product.downloaded_video_path && (
+                        <div className={`${product.downloaded_image_path ? 'h-1/2' : 'h-full'} w-full relative group/vid`}>
+                          {product.downloaded_video_path.endsWith('.mp4') || product.downloaded_video_path.endsWith('.webm') ? (
+                            <video src={product.downloaded_video_path} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                          ) : (
+                            <img src={product.downloaded_video_path} alt="Generated Video Media" className="w-full h-full object-cover" />
+                          )}
+                          <div className="absolute top-2 left-2 bg-black/40 backdrop-blur-md text-white text-[9px] font-bold px-2 py-1 rounded shadow pointer-events-none">VIDEO</div>
+                        </div>
+                      )}
+
+                      {!product.downloaded_image_path && !product.downloaded_video_path && (
+                        <div className="text-center p-6 flex flex-col items-center justify-center h-full w-full bg-gradient-to-b from-slate-800 to-slate-900">
+                          <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4 shadow-inner border border-slate-700">
+                            <span className="text-2xl animate-pulse">⏳</span>
+                          </div>
+                          <div className="text-sm font-semibold text-slate-300">Awaiting Automation</div>
+                          <div className="text-xs text-slate-500 mt-2">Media will appear here automatically.</div>
+                        </div>
+                      )}
                     </div>
                   )}
                   
