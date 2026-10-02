@@ -145,6 +145,10 @@ export default function GlobalAutoPilot() {
 
       if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
       writeLog(`\n--- Starting Product: ${prod.title} ---`);
+      // Ensure local server has no stuck jobs from previous runs
+      try { await fetch('http://localhost:3001/api/job', { method: 'DELETE' }); } catch(e) {}
+      try { await fetch('http://localhost:3001/api/result', { method: 'DELETE' }); } catch(e) {}
+      
       let imgPrompt = prod.image_prompt;
       let vidPrompt = prod.video_prompt;
       const imgPromptText = config.base_image_prompt || `Write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product. Place the product in an aesthetic, premium environment. Include keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic. Return ONLY the final prompt text.`;

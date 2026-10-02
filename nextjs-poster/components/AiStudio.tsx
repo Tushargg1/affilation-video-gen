@@ -248,6 +248,10 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       
       if (imgB64) {
         try {
+          // Clear any old stuck jobs first
+          await fetch('http://localhost:3001/api/job', { method: 'DELETE' });
+          await fetch('http://localhost:3001/api/result', { method: 'DELETE' }).catch(() => {});
+          
           await fetch('http://localhost:3001/api/job', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -292,6 +296,10 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       }
 
       try {
+        // Clear any old stuck jobs first
+        await fetch('http://localhost:3001/api/job', { method: 'DELETE' });
+        await fetch('http://localhost:3001/api/result', { method: 'DELETE' }).catch(() => {});
+        
         await fetch('http://localhost:3001/api/job', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
