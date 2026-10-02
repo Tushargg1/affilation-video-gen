@@ -73,6 +73,25 @@ export default function ProductsGallery() {
     }
   };
 
+  const handleDeletePrompt = async (id: number, field: 'image_prompt' | 'video_prompt') => {
+    const label = field === 'image_prompt' ? 'Image Prompt' : 'Video Prompt';
+    if (!confirm(`Delete the ${label} for this product? The automation will regenerate it next run.`)) return;
+
+    // Optimistic UI update
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: null } : p));
+
+    try {
+      await fetch('/api/db/products/update-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, [field]: null })
+      });
+    } catch(e) {
+      console.error(e);
+      fetchProducts();
+    }
+  };
+
   const tabs = [
     { id: 'ALL', label: 'All Products' },
     { id: 'JUST_EXTRACTED', label: 'Just Extracted' },
@@ -167,11 +186,23 @@ export default function ProductsGallery() {
                 {/* Prompts Section */}
                 <div className="xl:w-2/4 flex flex-col gap-5">
                   <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-slate-100 shadow-inner h-full hover:bg-white/80 transition-colors duration-300">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-md bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        </div>
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-indigo-900">Image Prompt</h4>
                       </div>
-                      <h4 className="text-xs font-bold uppercase tracking-widest text-indigo-900">Image Prompt</h4>
+                      {product.image_prompt && (
+                        <button
+                          onClick={() => handleDeletePrompt(product.id, 'image_prompt')}
+                          title="Delete Image Prompt"
+                          className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg transition-all"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          Delete
+                        </button>
+                      )}
                     </div>
                     <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words">
                       {product.image_prompt || <span className="italic text-slate-400">No image prompt generated yet.</span>}
@@ -179,11 +210,23 @@ export default function ProductsGallery() {
                   </div>
                   
                   <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-slate-100 shadow-inner h-full hover:bg-white/80 transition-colors duration-300">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-md bg-purple-100 text-purple-600 flex items-center justify-center">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-purple-100 text-purple-600 flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        </div>
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-purple-900">Video Prompt</h4>
                       </div>
-                      <h4 className="text-xs font-bold uppercase tracking-widest text-purple-900">Video Prompt</h4>
+                      {product.video_prompt && (
+                        <button
+                          onClick={() => handleDeletePrompt(product.id, 'video_prompt')}
+                          title="Delete Video Prompt"
+                          className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg transition-all"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          Delete
+                        </button>
+                      )}
                     </div>
                     <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words">
                       {product.video_prompt || <span className="italic text-slate-400">No video prompt generated yet.</span>}
