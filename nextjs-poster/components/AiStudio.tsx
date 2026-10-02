@@ -75,32 +75,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     localStorage.setItem('digen_autopilot', newState.toString());
   };
 
-  // The Heartbeat: Checks every 5 minutes if we need to generate more products for today
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    const checkHeartbeat = () => {
-      if (autoPilotRef.current && !isAutomating) {
-        runDailyAutomation();
-      }
-    };
-
-    // If autopilot is enabled and we aren't automating right now, do an immediate check
-    if (isAutoPilot && !isAutomating) {
-      // Small delay to allow initial products to load from DB
-      const timeout = setTimeout(() => {
-        checkHeartbeat();
-      }, 5000);
-      
-      // Then set up the recurring 5-minute heartbeat
-      interval = setInterval(checkHeartbeat, 5 * 60 * 1000);
-      
-      return () => {
-        clearTimeout(timeout);
-        clearInterval(interval);
-      };
-    }
-  }, [isAutoPilot, isAutomating, products.length]);
+  // Heartbeat is now handled globally by GlobalAutoPilot in layout.tsx
 
   const categories = Array.from(new Set(products.map(p => p.category || 'Uncategorized').filter(Boolean)));
   const categoryProducts = products.filter(p => (p.category || 'Uncategorized') === selectedCategory);

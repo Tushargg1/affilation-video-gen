@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
+import Link from 'next/link';
+import GlobalAutoPilot from '../components/GlobalAutoPilot';
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -39,27 +40,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   </span>
                 </div>
                 <div className="hidden sm:flex sm:space-x-1">
-                  <a href="/" className="px-4 py-2 rounded-full text-sm font-bold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200">
+                  <Link href="/" className="px-4 py-2 rounded-full text-sm font-bold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200">
                     Dashboard
-                  </a>
-                  <a href="/poster" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
+                  </Link>
+                  <Link href="/poster" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
                     <span>📅</span> Auto-Poster
-                  </a>
-                  <a href="/studio" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
+                  </Link>
+                  <Link href="/studio" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
                     <span>✨</span> AI Studio
-                  </a>
-                  <a href="/database" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
+                  </Link>
+                  <Link href="/database" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
                     <span>🗄️</span> Database
-                  </a>
-                  <a href="/products" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
+                  </Link>
+                  <Link href="/products" className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/80 transition-all duration-200 flex items-center gap-2">
                     <span>🖼️</span> Gallery
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>
           </div>
         </nav>
         <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
+          <GlobalAutoPilot />
           {children}
         </main>
       </body>
