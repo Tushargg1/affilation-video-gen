@@ -241,8 +241,8 @@ export default function GlobalAutoPilot() {
                   writeLog(`❌ Extension reported an error: ${data.result.error || 'Unknown error'}`);
                   break;
                 }
-                generatedImageBase64 = data.result.mediaBase64;
-                if (data.result.isNativeDownload && !generatedImageBase64) {
+                
+                if (data.result.isNativeDownload) {
                    writeLog(`Image generation finished! Waiting for local download to complete (up to 3 minutes)...`);
                    for (let j = 0; j < 36; j++) {
                       await new Promise(r => setTimeout(r, 5000));
@@ -252,7 +252,7 @@ export default function GlobalAutoPilot() {
                          const mediaData = await mediaRes.json();
                          if (mediaData.success && (mediaData.base64 || mediaData.filepath)) {
                              generatedImageBase64 = mediaData.filepath || mediaData.base64;
-                             writeLog(`  ✅ Found image: ${mediaData.filename}`);
+                             writeLog(`  ✅ Found image in Downloads: ${mediaData.filename}`);
                              break;
                          } else {
                              writeLog(`  ⏳ Not ready yet: ${mediaData.error || 'waiting...'}`);
@@ -288,28 +288,39 @@ export default function GlobalAutoPilot() {
               body: JSON.stringify({ filepath: generatedImageBase64 })
             });
             const localData = await localRes.json();
-            if (localData.url) uploadUrl = localData.url;
+            if (localData.url) {
+                uploadUrl = localData.url;
+            } else {
+                writeLog(`❌ Local upload failed: ${localData.error || 'Unknown error'}`);
+            }
           } else {
+            writeLog('Uploading base64 string directly to Vercel (subject to 4MB limit)...');
             const uploadRes = await fetch('/api/upload', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ base64: generatedImageBase64 })
             });
             const uploadData = await uploadRes.json();
-            if (uploadData.url) uploadUrl = uploadData.url;
+            if (uploadData.url) {
+                uploadUrl = uploadData.url;
+            } else {
+                writeLog(`❌ Vercel upload failed: ${uploadData.error || 'Unknown error'}`);
+            }
           }
 
           if (uploadUrl) {
-            writeLog('✅ Image uploaded! Saving URL to database...');
+            writeLog(`✅ Image uploaded! URL: ${uploadUrl.substring(0, 30)}... Saving to DB...`);
             prod.downloaded_image_path = uploadUrl; // Update local state for next steps
-            await fetch('/api/db/products/update', {
+            const dbRes = await fetch('/api/db/products/update', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ id: prod.id, social_link_1: uploadUrl })
             });
+            const dbData = await dbRes.json();
+            if (!dbData.success) writeLog(`❌ DB Update failed: ${dbData.error}`);
           }
-        } catch (e) {
-          writeLog('❌ Failed to upload image to Vercel. Continuing anyway...');
+        } catch (e: any) {
+          writeLog(`❌ Upload Exception: ${e.message}`);
         }
 
         // Keep lock alive before video prompt
