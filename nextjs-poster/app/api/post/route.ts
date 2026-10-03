@@ -12,7 +12,8 @@ export const maxDuration = 60;
 async function handler(request: Request) {
   try {
     const body = await request.json();
-    let { videoUrl, blobName, description, platforms } = body;
+    let { videoUrl, blobName, description, platforms, productId } = body;
+    const pId = productId || (blobName ? blobName.split('_')[1] : null);
     
     // Upstash sends the original messageId in the headers
     const messageId = request.headers.get('upstash-message-id');
@@ -112,7 +113,7 @@ async function handler(request: Request) {
          const qstash = new Client({ token: process.env.QSTASH_TOKEN! });
          await qstash.publishJSON({
             url: `${protocol}://${host}/api/publish-ig`,
-            body: { containerId: igData.id, videoUrl, messageId, postLinks },
+            body: { containerId: igData.id, videoUrl, messageId, postLinks, productId: pId },
             delay: 120, // Wait 2 minutes for IG to process the video
          });
          isIgDelayed = true;
@@ -141,6 +142,18 @@ async function handler(request: Request) {
            await redis.hset('app:posts', { [messageId]: { ...(existing as any), status: 'IG_PROCESSING', links: { ...((existing as any).links || {}), ...postLinks } } });
          }
        }
+    }
+
+    try {
+      if (pId) {
+         const updatePayload: any = { is_posted: true };
+         if (postLinks.facebook) updatePayload.facebook_link = postLinks.facebook;
+         if (postLinks.youtube) updatePayload.youtube_link = postLinks.youtube;
+         
+         await supabase.from('auto_products').update(updatePayload).eq('id', pId);
+      }
+    } catch (e) {
+      console.error("Failed to update Supabase with post links:", e);
     }
 
     return NextResponse.json({ success: true });

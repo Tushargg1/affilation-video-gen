@@ -36,6 +36,20 @@ async function handler(request: Request) {
        }
     }
 
+    // Update Database
+    if (body.productId) {
+        try {
+            const { createClient } = require('@supabase/supabase-js');
+            const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+            await supabase.from('auto_products').update({ 
+               is_posted: true, 
+               instagram_link: postLinks.instagram 
+            }).eq('id', body.productId);
+        } catch (e) {
+            console.error("Failed to update Supabase with IG link:", e);
+        }
+    }
+
     // Clean up Blob now that all platforms are done
     console.log('Cleaning up Vercel Blob...');
     await del(videoUrl);
