@@ -58,9 +58,17 @@ async function handler(request: Request) {
         }
     }
 
-    // Clean up Blob now that all platforms are done
-    console.log('Cleaning up Vercel Blob...');
-    await del(videoUrl);
+    // Clean up Blob in 48 hours
+    console.log('Scheduling Vercel Blob cleanup in 48 hours...');
+    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+    const host = request.headers.get('host') || process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    const { Client } = require('@upstash/qstash');
+    const qstash = new Client({ token: process.env.QSTASH_TOKEN! });
+    await qstash.publishJSON({
+       url: `${protocol}://${host}/api/delete-media`,
+       body: { videoUrl, productId: body.productId },
+       delay: 48 * 60 * 60, // 48 hours
+    });
 
     // Update History Database
     if (messageId && process.env.UPSTASH_REDIS_REST_URL) {

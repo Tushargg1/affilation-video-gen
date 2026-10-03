@@ -124,8 +124,15 @@ async function handler(request: Request) {
 
     // 5. Cleanup and Status Update
     if (!isIgDelayed) {
-       console.log('Cleaning up Vercel Blob...');
-       await del(videoUrl);
+       console.log('Scheduling Vercel Blob cleanup in 48 hours...');
+       const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+       const host = request.headers.get('host') || process.env.VERCEL_PROJECT_PRODUCTION_URL;
+       const qstash = new Client({ token: process.env.QSTASH_TOKEN! });
+       await qstash.publishJSON({
+          url: `${protocol}://${host}/api/delete-media`,
+          body: { videoUrl, productId: pId },
+          delay: 48 * 60 * 60, // 48 hours
+       });
        
        if (messageId && process.env.UPSTASH_REDIS_REST_URL) {
          const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN! });
