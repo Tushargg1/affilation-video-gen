@@ -40,8 +40,24 @@ async function handler(request: Request) {
 
     try {
       if (pId) {
-        const { data } = await supabase.from('auto_products').select('title, product_url').eq('id', pId).single();
+        const { data } = await supabase.from('auto_products').select('title, product_url, is_posted').eq('id', pId).single();
         if (data) {
+          if (data.is_posted) {
+            console.log(`Product ${pId} already posted, skipping duplicate QStash retry.`);
+            
+            // Mark the history entry as cancelled/skipped since it's a duplicate
+            if (messageId && process.env.UPSTASH_REDIS_REST_URL) {
+              try {
+                const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN! });
+                const existing = await redis.hget('app:posts', messageId);
+                if (existing) {
+                  await redis.hset('app:posts', { [messageId]: { ...(existing as any), status: 'CANCELLED', error: 'Duplicate post prevented' } });
+                }
+              } catch(e){}
+            }
+            
+            return NextResponse.json({ success: true, skipped: true, reason: 'already_posted' });
+          }
           title = data.title;
           url = data.product_url;
         }
