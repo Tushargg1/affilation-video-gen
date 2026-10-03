@@ -238,7 +238,47 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       } catch(e) { return null; }
     };
 
-    // Priority 1: Needs Image (has image prompt, but no image generated yet)
+    // Priority 1: Needs Video (has video prompt, image is already generated, but no video generated yet)
+    // We prioritize finishing products that are already halfway done before starting new ones.
+    const needsVideo = products.find((p: any) => p.video_prompt && p.downloaded_image_path && !p.downloaded_video_path);
+    
+    if (needsVideo) {
+      setSelectedProductId(needsVideo.id);
+      setStatus({ type: 'info', message: `Found product for Video generation: ${needsVideo.title}` });
+      
+      const imgB64 = await fetchBase64(needsVideo.downloaded_image_path);
+      
+      if (imgB64) {
+        try {
+          // Clear any old stuck jobs first
+          await fetch('http://localhost:3001/api/job', { method: 'DELETE' });
+          await fetch('http://localhost:3001/api/result', { method: 'DELETE' }).catch(() => {});
+          
+          await fetch('http://localhost:3001/api/job', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              target: 'video',
+              imagePrompt: null,
+              videoPrompt: needsVideo.video_prompt,
+              imageBase64: [imgB64]
+            })
+          });
+          alert(`✅ Sent VIDEO generation task for "${needsVideo.title}" to Extension! Polling for result in background...`);
+          
+          // Poll for Video Result
+          pollAndSaveResult(needsVideo.id, 'video');
+        } catch (e) {
+          alert('❌ Failed to connect to local server on port 3001.');
+        }
+      } else {
+        alert('❌ Failed to fetch generated image to use as video reference.');
+      }
+      setIsSending(false);
+      return;
+    }
+
+    // Priority 2: Needs Image (has image prompt, but no image generated yet)
     const needsImage = products.find((p: any) => p.image_prompt && !p.downloaded_image_path);
     if (needsImage) {
       setSelectedProductId(needsImage.id);
@@ -278,45 +318,6 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
         pollAndSaveResult(needsImage.id, 'image');
       } catch (e) {
         alert('❌ Failed to connect to local server on port 3001.');
-      }
-      setIsSending(false);
-      return;
-    }
-
-    // Priority 2: Needs Video (has video prompt, but no video generated yet)
-    const needsVideo = products.find((p: any) => p.video_prompt && !p.downloaded_video_path);
-    
-    if (needsVideo) {
-      setSelectedProductId(needsVideo.id);
-      setStatus({ type: 'info', message: `Found product for Video generation: ${needsVideo.title}` });
-      
-      const imgB64 = await fetchBase64(needsVideo.downloaded_image_path || needsVideo.image_url);
-      
-      if (imgB64) {
-        try {
-          // Clear any old stuck jobs first
-          await fetch('http://localhost:3001/api/job', { method: 'DELETE' });
-          await fetch('http://localhost:3001/api/result', { method: 'DELETE' }).catch(() => {});
-          
-          await fetch('http://localhost:3001/api/job', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              target: 'video',
-              imagePrompt: null,
-              videoPrompt: needsVideo.video_prompt,
-              imageBase64: [imgB64]
-            })
-          });
-          alert(`✅ Sent VIDEO generation task for "${needsVideo.title}" to Extension! Polling for result in background...`);
-          
-          // Poll for Video Result
-          pollAndSaveResult(needsVideo.id, 'video');
-        } catch (e) {
-          alert('❌ Failed to connect to local server on port 3001.');
-        }
-      } else {
-        alert('❌ Failed to fetch generated image to use as video reference.');
       }
       setIsSending(false);
       return;
