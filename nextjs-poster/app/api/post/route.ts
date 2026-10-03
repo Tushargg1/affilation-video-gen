@@ -146,10 +146,14 @@ async function handler(request: Request) {
 
     try {
       if (pId) {
-         const updatePayload: any = { is_posted: true };
-         if (postLinks.facebook) updatePayload.facebook_link = postLinks.facebook;
-         if (postLinks.youtube) updatePayload.youtube_link = postLinks.youtube;
-         
+         const categoryLinks = {
+           facebook_link: postLinks.facebook || '',
+           youtube_link: postLinks.youtube || '',
+         };
+         const updatePayload: any = { 
+           is_posted: true,
+           category: JSON.stringify(categoryLinks)
+         };
          await supabase.from('auto_products').update(updatePayload).eq('id', pId);
       }
     } catch (e) {
