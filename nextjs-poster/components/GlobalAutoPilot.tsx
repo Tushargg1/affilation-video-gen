@@ -5,7 +5,8 @@ import { useEffect, useRef } from 'react';
 // Shared helper to write logs to localStorage so the UI can display them
 const writeLog = (msg: string) => {
   const currentLogs = JSON.parse(localStorage.getItem('digen_logs') || '[]');
-  currentLogs.push(msg);
+  const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  currentLogs.push(`[${time}] ${msg}`);
   // Keep only last 100 logs to avoid localStorage overflow
   if (currentLogs.length > 100) currentLogs.shift();
   localStorage.setItem('digen_logs', JSON.stringify(currentLogs));
@@ -69,8 +70,8 @@ export default function GlobalAutoPilot() {
       
       // Cross-tab / React Strict Mode concurrency lock
       const lastLock = parseInt(localStorage.getItem('digen_lock_timestamp') || '0');
-      // If another tab/instance updated the lock within the last 15 seconds, don't run!
-      if (Date.now() - lastLock < 15000 && localStorage.getItem('digen_is_running') === 'true') {
+      // Use a generous 60-second lock because inactive browser tabs throttle setInterval heavily
+      if (Date.now() - lastLock < 60000 && localStorage.getItem('digen_is_running') === 'true') {
           return;
       }
 
