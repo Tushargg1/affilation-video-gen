@@ -31,6 +31,36 @@ async function handler(request: Request) {
                }
            } catch (err) {}
 
+           // Publish IG Photo
+           if (body.imageUrl) {
+               try {
+                   console.log('Posting image to Instagram...');
+                   const igPhotoUrl = `https://graph.facebook.com/v20.0/${process.env.INSTAGRAM_ACCOUNT_ID}/media?image_url=${encodeURIComponent(body.imageUrl)}&caption=${encodeURIComponent(body.igImageCaption || '')}&access_token=${process.env.META_ACCESS_TOKEN}`;
+                   const igPhotoRes = await fetch(igPhotoUrl, { method: 'POST' });
+                   const igPhotoData = await igPhotoRes.json();
+                   
+                   if (igPhotoData.id) {
+                       // Publish the photo container immediately (images usually process instantly)
+                       const igPhotoPublishUrl = `https://graph.facebook.com/v20.0/${process.env.INSTAGRAM_ACCOUNT_ID}/media_publish?creation_id=${igPhotoData.id}&access_token=${process.env.META_ACCESS_TOKEN}`;
+                       const igPhotoPublishRes = await fetch(igPhotoPublishUrl, { method: 'POST' });
+                       const igPhotoPublishData = await igPhotoPublishRes.json();
+                       
+                       if (igPhotoPublishData.id) {
+                           console.log('Instagram Image Post Success:', igPhotoPublishData.id);
+                           try {
+                               const permalinkRes = await fetch(`https://graph.facebook.com/v20.0/${igPhotoPublishData.id}?fields=permalink&access_token=${process.env.META_ACCESS_TOKEN}`);
+                               const permalinkData = await permalinkRes.json();
+                               if (permalinkData.permalink) {
+                                   postLinks.instagram_image = permalinkData.permalink;
+                               }
+                           } catch (err) {}
+                       }
+                   }
+               } catch (e) {
+                   console.error('Instagram Image Publish Error:', e);
+               }
+           }
+
            // Update Database only when IG actually succeeded
            if (body.productId) {
                try {
@@ -43,6 +73,7 @@ async function handler(request: Request) {
                      try { links = JSON.parse(data.category); } catch(e) {}
                    }
                    links.instagram_link = postLinks.instagram || '';
+                   links.instagram_image_link = postLinks.instagram_image || '';
                    
                    await supabase.from('auto_products').update({ 
                       is_posted: true, 

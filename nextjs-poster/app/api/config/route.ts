@@ -12,7 +12,9 @@ const defaultConfig = {
   base_video_prompt: "You are an expert AI prompt engineer. Analyze the attached product image and write a highly detailed text-to-video prompt to create a stunning, high-converting product showcase video.\\nThe video must be exactly 10 seconds long.\\nFocus on smooth, premium camera movements (e.g., slow cinematic pan, dynamic orbital shot, or elegant zoom).\\nDescribe the lighting as professional and cinematic. Highlight the product's textures and aesthetic appeal.\\nInclude keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed.\\nReturn ONLY the final prompt text, with no introductory text or markdown formatting.",
   youtube_caption: 'Check out this amazing {title}! 🚀\n\nGet it here: {url}\n\n#trending #shorts',
   facebook_caption: '🔥 Hot New Product Alert! 🔥\n\n{title} is now available.\n\nGrab yours today: {url}',
-  instagram_caption: 'Obsessed with this {title}! 😍\n\nLink in bio to shop!\n\n#fashion #trending #musthave'
+  instagram_caption: 'Obsessed with this {title}! 😍\n\nLink in bio to shop!\n\n#fashion #trending #musthave',
+  facebook_image_caption: '✨ Check out this gorgeous product! {title}\n\nGet it here: {url}',
+  instagram_image_caption: '😍 Loving this {title}!\n\nLink in bio to shop! #fashion #trending #ootd'
 };
 
 const corsHeaders = {

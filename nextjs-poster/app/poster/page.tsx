@@ -445,6 +445,23 @@ export default function Home() {
     }
   };
 
+  const [isPostingNow, setIsPostingNow] = useState(false);
+
+  const handlePostNow = async () => {
+    setIsPostingNow(true);
+    try {
+      const res = await fetch('/api/post-now', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to post now');
+      alert(`Success: ${data.message}`);
+      fetchHistory();
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setIsPostingNow(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 p-6 lg:p-12 font-sans text-slate-900">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -520,6 +537,24 @@ export default function Home() {
                   Settings are saved to the cloud. The scheduler on your laptop will pick up the latest settings automatically.
                 </p>
               </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Facebook Image Caption</label>
+                <textarea 
+                  value={schedulerConfig.facebook_image_caption || ''}
+                  onChange={(e) => updateSchedulerConfig({ ...schedulerConfig, facebook_image_caption: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500/50 outline-none min-h-[80px]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Instagram Image Caption</label>
+                <textarea 
+                  value={schedulerConfig.instagram_image_caption || ''}
+                  onChange={(e) => updateSchedulerConfig({ ...schedulerConfig, instagram_image_caption: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500/50 outline-none min-h-[80px]"
+                />
+              </div>
             </div>
           </div>
 
@@ -527,9 +562,26 @@ export default function Home() {
           <div className="lg:col-span-7 bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col">
              <div className="flex justify-between items-center mb-6">
                 <h3 className="text-2xl font-bold text-slate-900">Social Media History</h3>
-                <button onClick={fetchHistory} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                </button>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={handlePostNow} 
+                    disabled={isPostingNow}
+                    className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                  >
+                    {isPostingNow ? (
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    )}
+                    Post Now
+                  </button>
+                  <button onClick={fetchHistory} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  </button>
+                </div>
              </div>
              
              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-[400px]">
