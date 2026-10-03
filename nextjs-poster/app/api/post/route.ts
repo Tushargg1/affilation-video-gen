@@ -193,6 +193,16 @@ async function handler(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Webhook error:', error);
+    try {
+      const messageId = request.headers.get('upstash-message-id');
+      if (messageId && process.env.UPSTASH_REDIS_REST_URL) {
+        const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN! });
+        const existing = await redis.hget('app:posts', messageId);
+        if (existing) {
+          await redis.hset('app:posts', { [messageId]: { ...(existing as any), status: 'ERROR', error: error.message || 'Unknown error' } });
+        }
+      }
+    } catch(e) {}
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

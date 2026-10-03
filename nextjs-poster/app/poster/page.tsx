@@ -679,11 +679,18 @@ export default function Home() {
                                   );
                                 })}
                               </div>
+                              {post.status === 'ERROR' && post.error && (
+                                <div className="mt-3 text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-100 flex items-start gap-1.5 max-w-sm">
+                                  <svg className="w-4 h-4 flex-shrink-0 mt-px" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                  <span className="font-medium break-all">{post.error}</span>
+                                </div>
+                              )}
                             </div>
                             
                             <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
                               <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm ${
                                 post.status === 'POSTED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                                post.status === 'ERROR' ? 'bg-red-100 text-red-700 border border-red-200' :
                                 isPending ? 'bg-amber-100 text-amber-700 border border-amber-200' :
                                 isIgProcessing ? 'bg-blue-100 text-blue-700 border border-blue-200' :
                                 'bg-slate-200 text-slate-500 border border-slate-300'
