@@ -134,9 +134,27 @@ export default function GlobalAutoPilot() {
       return;
     }
 
-    // Find pending products
+    // Find pending products that are not fully completed (missing downloaded_video_path)
     const savedCat = localStorage.getItem('ai_studio_category') || 'Uncategorized';
-    let pendingProducts = products.filter((p: any) => (p.category || 'Uncategorized') === savedCat && (!p.image_prompt || !p.video_prompt));
+    let pendingProducts = products.filter((p: any) => 
+      (p.category || 'Uncategorized') === savedCat && 
+      !p.downloaded_video_path
+    );
+    
+    // Sort to prioritize products that are halfway done, just like "Process Next Media" button
+    pendingProducts.sort((a: any, b: any) => {
+       // Priority 1: Has image but needs video
+       const aNeedsVideo = a.downloaded_image_path && !a.downloaded_video_path ? 1 : 0;
+       const bNeedsVideo = b.downloaded_image_path && !b.downloaded_video_path ? 1 : 0;
+       if (aNeedsVideo !== bNeedsVideo) return bNeedsVideo - aNeedsVideo;
+
+       // Priority 2: Has prompts but needs image
+       const aNeedsImage = a.image_prompt && !a.downloaded_image_path ? 1 : 0;
+       const bNeedsImage = b.image_prompt && !b.downloaded_image_path ? 1 : 0;
+       if (aNeedsImage !== bNeedsImage) return bNeedsImage - aNeedsImage;
+
+       return 0;
+    });
     
     pendingProducts = pendingProducts.slice(0, remainingQuota);
     if (pendingProducts.length === 0) {
