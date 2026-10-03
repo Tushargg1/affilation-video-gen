@@ -43,7 +43,8 @@ export async function GET() {
       return NextResponse.json(defaultConfig, { headers: corsHeaders });
     }
 
-    return NextResponse.json(config, { headers: corsHeaders });
+    const mergedConfig = { ...defaultConfig, ...(typeof config === 'string' ? JSON.parse(config) : config) };
+    return NextResponse.json(mergedConfig, { headers: corsHeaders });
   } catch (error) {
     return NextResponse.json(defaultConfig, { headers: corsHeaders });
   }
@@ -62,10 +63,10 @@ export async function POST(request: Request) {
       token: process.env.UPSTASH_REDIS_REST_TOKEN,
     });
 
-    let current = await redis.get('app:scheduler_config') || defaultConfig;
+    let current = await redis.get('app:scheduler_config');
     if (typeof current === 'string') current = JSON.parse(current);
     
-    const newConfig = { ...(current as any), ...body };
+    const newConfig = { ...defaultConfig, ...(current as any || {}), ...body };
     await redis.set('app:scheduler_config', newConfig);
     
     return NextResponse.json({ success: true, config: newConfig }, { headers: corsHeaders });
