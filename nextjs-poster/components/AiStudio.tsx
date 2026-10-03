@@ -224,6 +224,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
 
   const processNextMedia = async () => {
     setIsSending(true);
+    localStorage.setItem('digen_logs', '[]'); // Clear old terminal logs to avoid confusion
 
     const fetchBase64 = async (url: string) => {
       try {
