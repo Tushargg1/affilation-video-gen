@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { videoUrl, blobName, description, platforms, scheduleTime } = body;
+    const { videoUrl, blobName, description, platforms, scheduleTime, productId } = body;
 
     if (!videoUrl || !scheduleTime) {
       return NextResponse.json({ error: 'Missing video URL or schedule time.' }, { status: 400 });
@@ -52,6 +52,7 @@ export async function POST(request: Request) {
         blobName,
         description,
         platforms,
+        productId,
       },
       notBefore: notBefore,
       retries: 3,
