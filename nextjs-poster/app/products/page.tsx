@@ -147,11 +147,11 @@ export default function ProductsGallery() {
 
   const filteredProducts = products.filter(p => {
     if (filter === 'ALL') return true;
-    if (filter === 'JUST_EXTRACTED') return !p.image_prompt && !p.video_prompt && !p.video_url;
+    if (filter === 'JUST_EXTRACTED') return !p.image_prompt && !p.video_prompt && !p.downloaded_image_path && !p.downloaded_video_path;
     if (filter === 'IMG_PROMPT') return !!p.image_prompt;
     if (filter === 'VID_PROMPT') return !!p.video_prompt;
-    if (filter === 'IMG_GEN') return p.video_url && !p.video_url.endsWith('.mp4');
-    if (filter === 'VID_GEN') return p.video_url && p.video_url.endsWith('.mp4');
+    if (filter === 'IMG_GEN') return !!p.downloaded_image_path;
+    if (filter === 'VID_GEN') return !!p.downloaded_video_path;
     if (filter === 'POSTED') return !!p.is_posted;
     if (filter === 'AFFILIATED') return !!p.is_affiliated;
     return true;
