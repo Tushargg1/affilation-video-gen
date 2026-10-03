@@ -82,7 +82,7 @@ app.get('/api/latest-media', (req, res) => {
                     // STRICTLY only .mp4 or .webm — never a PNG/JPG
                     return f.endsWith('.mp4') || f.endsWith('.webm');
                 }
-                return f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.png');
+                return f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.png') || f.endsWith('.webp');
             })
             .map(f => ({
                 name: f,
@@ -111,6 +111,7 @@ app.get('/api/latest-media', (req, res) => {
             if (newestFile.name.endsWith('.webm')) mimeType = 'video/webm';
             if (newestFile.name.endsWith('.jpg') || newestFile.name.endsWith('.jpeg')) mimeType = 'image/jpeg';
             if (newestFile.name.endsWith('.png')) mimeType = 'image/png';
+            if (newestFile.name.endsWith('.webp')) mimeType = 'image/webp';
             
             const base64 = `data:${mimeType};base64,` + fileData.toString('base64');
             console.log(`\n📁 Serving latest ${type}: ${newestFile.name} (${(fileData.length / 1024 / 1024).toFixed(1)} MB)`);
@@ -138,6 +139,7 @@ app.post('/api/upload-local', async (req, res) => {
         if (filepath.endsWith('.mp4')) { ext = 'mp4'; contentType = 'video/mp4'; }
         else if (filepath.endsWith('.webm')) { ext = 'webm'; contentType = 'video/webm'; }
         else if (filepath.endsWith('.jpg') || filepath.endsWith('.jpeg')) { ext = 'jpg'; contentType = 'image/jpeg'; }
+        else if (filepath.endsWith('.webp')) { ext = 'webp'; contentType = 'image/webp'; }
         
         const blob = await put(`generated-${Date.now()}.${ext}`, data, {
             access: 'public',

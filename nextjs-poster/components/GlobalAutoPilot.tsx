@@ -250,8 +250,8 @@ export default function GlobalAutoPilot() {
                       try {
                          const mediaRes = await fetch(`http://localhost:3001/api/latest-media?type=image&job_start_time=${imageJobStartTime}`);
                          const mediaData = await mediaRes.json();
-                         if (mediaData.success && mediaData.base64) {
-                             generatedImageBase64 = mediaData.base64;
+                         if (mediaData.success && (mediaData.base64 || mediaData.filepath)) {
+                             generatedImageBase64 = mediaData.filepath || mediaData.base64;
                              writeLog(`  ✅ Found image: ${mediaData.filename}`);
                              break;
                          } else {
@@ -278,19 +278,34 @@ export default function GlobalAutoPilot() {
 
         writeLog('Uploading generated image to Vercel Cloud Storage...');
         try {
-          const uploadRes = await fetch('/api/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ base64: generatedImageBase64 })
-          });
-          const uploadData = await uploadRes.json();
-          if (uploadData.url) {
+          let uploadUrl = null;
+          // If generatedImageBase64 is an absolute path (C:\...), upload locally via server.js
+          if (generatedImageBase64.includes('\\') || generatedImageBase64.includes('/')) {
+            writeLog('Uploading directly from local server (bypasses 4MB limit)...');
+            const localRes = await fetch('http://localhost:3001/api/upload-local', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ filepath: generatedImageBase64 })
+            });
+            const localData = await localRes.json();
+            if (localData.url) uploadUrl = localData.url;
+          } else {
+            const uploadRes = await fetch('/api/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ base64: generatedImageBase64 })
+            });
+            const uploadData = await uploadRes.json();
+            if (uploadData.url) uploadUrl = uploadData.url;
+          }
+
+          if (uploadUrl) {
             writeLog('✅ Image uploaded! Saving URL to database...');
-            prod.downloaded_image_path = uploadData.url; // Update local state for next steps
+            prod.downloaded_image_path = uploadUrl; // Update local state for next steps
             await fetch('/api/db/products/update', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: prod.id, social_link_1: uploadData.url })
+              body: JSON.stringify({ id: prod.id, social_link_1: uploadUrl })
             });
           }
         } catch (e) {
