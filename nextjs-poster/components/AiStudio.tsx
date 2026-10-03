@@ -543,10 +543,12 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   const stats = {
     todayImagePrompts: products.filter(p => p.image_prompt && p.updated_at && new Date(p.updated_at).toDateString() === todayString).length,
     todayVideoPrompts: products.filter(p => p.video_prompt && p.updated_at && new Date(p.updated_at).toDateString() === todayString).length,
-    todayVideos: products.filter(p => p.video_url && p.updated_at && new Date(p.updated_at).toDateString() === todayString).length,
+    todayImages: products.filter(p => p.downloaded_image_path && p.updated_at && new Date(p.updated_at).toDateString() === todayString).length,
+    todayVideos: products.filter(p => p.downloaded_video_path && p.updated_at && new Date(p.updated_at).toDateString() === todayString).length,
     totalImagePrompts: products.filter(p => p.image_prompt).length,
     totalVideoPrompts: products.filter(p => p.video_prompt).length,
-    totalVideos: products.filter(p => p.video_url).length,
+    totalImages: products.filter(p => p.downloaded_image_path).length,
+    totalVideos: products.filter(p => p.downloaded_video_path).length,
   };
 
   return (
@@ -611,7 +613,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       </div>
 
       {/* Analytics Dashboard */}
-      <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 bg-white/40 p-4 rounded-2xl border border-white/60 shadow-sm backdrop-blur-sm">
+      <div className="relative z-10 grid grid-cols-2 md:grid-cols-5 gap-4 mb-8 bg-white/40 p-4 rounded-2xl border border-white/60 shadow-sm backdrop-blur-sm">
         <div className="flex flex-col p-3 rounded-xl bg-white/60 border border-slate-100">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Image Prompts</span>
           <div className="flex items-end gap-2">
@@ -627,6 +629,14 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
             <span className="text-xs font-semibold text-slate-500 mb-1">today</span>
           </div>
           <span className="text-[10px] font-semibold text-slate-400 mt-1">{stats.totalVideoPrompts} total historical</span>
+        </div>
+        <div className="flex flex-col p-3 rounded-xl bg-white/60 border border-slate-100">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Finished Images</span>
+          <div className="flex items-end gap-2">
+            <span className="text-2xl font-black text-blue-600">{stats.todayImages}</span>
+            <span className="text-xs font-semibold text-slate-500 mb-1">today</span>
+          </div>
+          <span className="text-[10px] font-semibold text-slate-400 mt-1">{stats.totalImages} total historical</span>
         </div>
         <div className="flex flex-col p-3 rounded-xl bg-white/60 border border-slate-100">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Finished Videos</span>
