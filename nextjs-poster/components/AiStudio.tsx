@@ -360,18 +360,26 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
                    }
                 }
               } else {
-                // For IMAGE: use mediaBase64 first, fall back to latest-media
-                base64ToUpload = data.result.mediaBase64;
-                if (data.result.isNativeDownload && !base64ToUpload) {
+                // For IMAGE: always wait for native download to avoid 4MB Vercel upload limit
+                if (data.result.isNativeDownload || true) {
                    setStatus({ type: 'info', message: `Image done! Waiting for local download...` });
                    for (let j = 0; j < 36; j++) {
                       await new Promise(r => setTimeout(r, 5000));
                       try {
                          const imgRes = await fetch(`http://localhost:3001/api/latest-media?type=image&job_start_time=${jobStartTime}`);
                          const imgData = await imgRes.json();
-                         if (imgData.success && imgData.base64) { base64ToUpload = imgData.base64; break; }
+                         if (imgData.success && (imgData.base64 || imgData.filepath)) { 
+                             base64ToUpload = imgData.filepath || imgData.base64; 
+                             setStatus({ type: 'info', message: `Found: ${imgData.filename}` });
+                             break; 
+                         }
                       } catch(e) {}
                    }
+                }
+                
+                // Fallback to canvas base64 only if native download completely failed
+                if (!base64ToUpload && data.result.mediaBase64) {
+                    base64ToUpload = data.result.mediaBase64;
                 }
               }
               
