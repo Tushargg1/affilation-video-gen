@@ -135,11 +135,11 @@ export default function Home() {
     if (savedKeyword) setKeyword(savedKeyword);
     if (savedSkipZero !== null) setSkipZero(savedSkipZero === 'true');
 
-    // Poll Vercel for tunnel URL and History less frequently
+    // Poll Vercel for tunnel URL and History more frequently for live updates
     const vercelInterval = setInterval(() => {
       fetchHistory();
       syncTunnelUrl();
-    }, 30000); 
+    }, 3000); 
 
     return () => {
       clearInterval(vercelInterval);
