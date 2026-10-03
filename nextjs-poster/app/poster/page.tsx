@@ -309,16 +309,16 @@ export default function Home() {
 
   const deleteCategory = async (category: string) => {
     if (!cfUrl) return;
-    const catProducts = products.filter(p => (p.category || 'Uncategorized') === category);
+    const catProducts = products.filter((p: any) => getDisplayCategory(p) === category);
     if (catProducts.length === 0) return;
     if (!confirm(`Delete all ${catProducts.length} products in category "${category}"?`)) return;
     
-    const ids = catProducts.map(p => p.id);
-    setProducts(products.filter(p => (p.category || 'Uncategorized') !== category));
+    const ids = catProducts.map((p: any) => p.id);
+    setProducts(products.filter((p: any) => getDisplayCategory(p) !== category));
     
     setSelectedProducts(prev => {
       const next = new Set(prev);
-      ids.forEach(id => next.delete(id));
+      ids.forEach((id: any) => next.delete(id));
       return next;
     });
 
@@ -333,11 +333,20 @@ export default function Home() {
     } catch {}
   };
 
-  const categories = ['All', ...Array.from(new Set(products.map(p => p.category || 'Uncategorized').filter(c => c)))];
+  // Helper: safely parse category - if it's JSON (social links), return 'Uncategorized'
+  const getDisplayCategory = (p: any): string => {
+    const cat = p.category;
+    if (!cat) return 'Uncategorized';
+    // If category is a JSON string (social links stored there), treat as Uncategorized
+    if (cat.startsWith('{')) return 'Uncategorized';
+    return cat;
+  };
+
+  const categories = ['All', ...Array.from(new Set(products.map((p: any) => getDisplayCategory(p)).filter((c: any) => c)))];
   const displayedProducts = products
-    .filter(p => !hideProcessed || p.video_created !== 1)
-    .filter(p => selectedCategory === 'All' || (p.category || 'Uncategorized') === selectedCategory)
-    .filter(p => (p.title || '').toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter((p: any) => !hideProcessed || p.video_created !== 1)
+    .filter((p: any) => selectedCategory === 'All' || getDisplayCategory(p) === selectedCategory)
+    .filter((p: any) => (p.title || '').toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
       if (sortBy === 'priceAsc') return parseFloat(a.price) - parseFloat(b.price);
       if (sortBy === 'priceDesc') return parseFloat(b.price) - parseFloat(a.price);

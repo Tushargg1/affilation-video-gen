@@ -69,37 +69,40 @@ export default function ProductsGallery() {
   }, []);
 
   const handleToggle = async (id: number, field: 'is_posted' | 'is_affiliated', currentValue: boolean) => {
-    let social_link_1 = '';
-    let social_link_2 = '';
+    let facebook_link = '';
+    let instagram_link = '';
+    let youtube_link = '';
     
     if (field === 'is_posted' && !currentValue) {
-      // User is checking the "Posted on Socials" box
-      const fbLink = prompt("Enter Facebook Post Link:");
+      // User is checking the "Posted on Socials" box — ask for links
+      const fbLink = prompt("Enter Facebook Post Link (or leave blank):");
       if (fbLink === null) return; // User cancelled
-      const igLink = prompt("Enter Instagram Post Link:");
+      const igLink = prompt("Enter Instagram Post Link (or leave blank):");
       if (igLink === null) return; // User cancelled
-      const ytLink = prompt("Enter YouTube Post Link:");
+      const ytLink = prompt("Enter YouTube Post Link (or leave blank):");
       if (ytLink === null) return; // User cancelled
       
-      social_link_1 = fbLink;
-      social_link_2 = igLink;
+      facebook_link = fbLink;
+      instagram_link = igLink;
+      youtube_link = ytLink;
     }
 
     const payload: any = { id, [field]: !currentValue };
     if (field === 'is_posted' && !currentValue) {
-      payload.facebook_link = social_link_1;
-      payload.instagram_link = social_link_2;
-      // Also grab ytLink if defined, wait, I can't access it here. I'll rewrite this block.
-    
+      payload.facebook_link = facebook_link;
+      payload.instagram_link = instagram_link;
+      payload.youtube_link = youtube_link;
+    }
+
     // Optimistic UI update
     setProducts(prev => prev.map(p => {
       if (p.id === id) {
         const updated = { ...p, [field]: !currentValue };
         if (field === 'is_posted' && !currentValue) {
           const cat = {
-            facebook_link: payload.facebook_link,
-            instagram_link: payload.instagram_link,
-            youtube_link: payload.youtube_link,
+            facebook_link,
+            instagram_link,
+            youtube_link,
           };
           updated.category = JSON.stringify(cat);
         }
@@ -117,7 +120,7 @@ export default function ProductsGallery() {
     } catch(e) {
       console.error(e);
       // Revert on error
-      fetchProducts(); // Re-fetch to guarantee sync on error
+      fetchProducts();
     }
   };
 

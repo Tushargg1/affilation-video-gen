@@ -30,32 +30,32 @@ async function handler(request: Request) {
                    postLinks.instagram = `https://www.instagram.com/p/${igData.id}/`; // Fallback
                }
            } catch (err) {}
+
+           // Update Database only when IG actually succeeded
+           if (body.productId) {
+               try {
+                   const { createClient } = require('@supabase/supabase-js');
+                   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+                   
+                   const { data } = await supabase.from('auto_products').select('category').eq('id', body.productId).single();
+                   let links: any = {};
+                   if (data && data.category) {
+                     try { links = JSON.parse(data.category); } catch(e) {}
+                   }
+                   links.instagram_link = postLinks.instagram || '';
+                   
+                   await supabase.from('auto_products').update({ 
+                      is_posted: true, 
+                      category: JSON.stringify(links)
+                   }).eq('id', body.productId);
+               } catch (e) {
+                   console.error("Failed to update Supabase with IG link:", e);
+               }
+           }
            
        } else {
            console.error('Instagram Publish Error:', igData);
        }
-    }
-
-    // Update Database
-    if (body.productId) {
-        try {
-            const { createClient } = require('@supabase/supabase-js');
-            const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-            
-            const { data } = await supabase.from('auto_products').select('category').eq('id', body.productId).single();
-            let links = {};
-            if (data && data.category) {
-              try { links = JSON.parse(data.category); } catch(e) {}
-            }
-            links.instagram_link = postLinks.instagram || '';
-            
-            await supabase.from('auto_products').update({ 
-               is_posted: true, 
-               category: JSON.stringify(links)
-            }).eq('id', body.productId);
-        } catch (e) {
-            console.error("Failed to update Supabase with IG link:", e);
-        }
     }
 
     // Clean up Blob in 48 hours

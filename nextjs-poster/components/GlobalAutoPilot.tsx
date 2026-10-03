@@ -116,7 +116,7 @@ export default function GlobalAutoPilot() {
     // Calculate how many products were already generated today
     const todayString = new Date().toDateString();
     const todayGeneratedCount = products.filter((p: any) => 
-      p.video_url && p.updated_at && new Date(p.updated_at).toDateString() === todayString
+      (p.downloaded_video_path || p.downloaded_image_path) && p.updated_at && new Date(p.updated_at).toDateString() === todayString
     ).length;
 
     const dailyLimit = config.daily_target || 4;

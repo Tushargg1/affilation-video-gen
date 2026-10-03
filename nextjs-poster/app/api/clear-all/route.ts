@@ -16,19 +16,19 @@ export async function GET() {
       deletedBlobs++;
     }
 
-    // 2. Clear video_url in Supabase
+    // 2. Clear media paths in Supabase
     const { data: products, error: getError } = await supabase
       .from('auto_products')
-      .select('id, video_url');
+      .select('id, downloaded_video_path, downloaded_image_path');
       
     if (getError) throw getError;
 
     let updatedProducts = 0;
     for (const p of products) {
-      if (p.video_url) {
+      if (p.downloaded_video_path || p.downloaded_image_path) {
         await supabase
           .from('auto_products')
-          .update({ video_url: null, video_created: false })
+          .update({ downloaded_video_path: null, downloaded_image_path: null, video_created: 0 })
           .eq('id', p.id);
         updatedProducts++;
       }

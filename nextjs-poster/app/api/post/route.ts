@@ -40,9 +40,8 @@ async function handler(request: Request) {
     let url = "";
 
     try {
-      const productId = blobName.split('_')[1];
-      if (productId) {
-        const { data } = await supabase.from('auto_products').select('title, product_url').eq('id', productId).single();
+      if (pId) {
+        const { data } = await supabase.from('auto_products').select('title, product_url').eq('id', pId).single();
         if (data) {
           title = data.title;
           url = data.product_url;

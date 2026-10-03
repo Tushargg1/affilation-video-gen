@@ -19,8 +19,7 @@ async function handler(request: Request) {
         const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
         
         await supabase.from('auto_products').update({ 
-           downloaded_video_path: null,
-           downloaded_image_path: null
+           downloaded_video_path: null
         }).eq('id', productId);
     }
 
