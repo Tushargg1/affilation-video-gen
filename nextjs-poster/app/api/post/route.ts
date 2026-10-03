@@ -53,6 +53,10 @@ async function handler(request: Request) {
     const replaceVars = (str: string) => (str || '').replace(/{title}/g, title).replace(/{url}/g, url);
 
     // Video captions
+    const ytTitleRaw = replaceVars(config.youtube_title_template || "{title} #shorts");
+    // YouTube titles max 100 chars
+    const ytTitle = ytTitleRaw.length > 100 ? ytTitleRaw.substring(0, 97) + '...' : ytTitleRaw;
+    
     const ytCaption = replaceVars(config.youtube_caption || "Check this out! {url} #shorts");
     const fbCaption = replaceVars(config.facebook_caption || "Hot new product! {url}");
     const igCaption = replaceVars(config.instagram_caption || "Link in bio to shop this {title}!");
@@ -76,7 +80,7 @@ async function handler(request: Request) {
 
         const ytRes = await youtube.videos.insert({
           part: ['snippet', 'status'],
-          requestBody: { snippet: { title: `${title} #shorts`, description: ytCaption, categoryId: '22' }, status: { privacyStatus: 'public', selfDeclaredMadeForKids: false } },
+          requestBody: { snippet: { title: ytTitle, description: ytCaption, categoryId: '22' }, status: { privacyStatus: 'public', selfDeclaredMadeForKids: false } },
           media: { body: stream },
         });
         
