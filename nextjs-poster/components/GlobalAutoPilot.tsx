@@ -89,11 +89,18 @@ export default function GlobalAutoPilot() {
       
       isAutomatingRef.current = true;
       
+      const keepAliveInterval = setInterval(() => {
+        if (localStorage.getItem('digen_is_running') === 'true') {
+          localStorage.setItem('digen_lock_timestamp', Date.now().toString());
+        }
+      }, 5000);
+      
       try {
         await runHeadlessAutomation();
       } catch (e: any) {
         writeLog(`❌ Automation Error: ${e.message}`);
       } finally {
+        clearInterval(keepAliveInterval);
         isAutomatingRef.current = false;
         localStorage.setItem('digen_is_running', 'false');
         localStorage.setItem('digen_force_run', 'false');
@@ -272,9 +279,6 @@ export default function GlobalAutoPilot() {
         // Poll for generated image
         writeLog('Waiting for Image to be generated... (Takes a few minutes)');
         while (true) {
-          // Keep the lock alive while waiting
-          localStorage.setItem('digen_lock_timestamp', Date.now().toString());
-          
           if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
           await new Promise(r => setTimeout(r, 5000));
           try {
@@ -433,9 +437,6 @@ export default function GlobalAutoPilot() {
         writeLog('Waiting for Video to be generated... (Takes a few minutes)');
         let finalVideoUrl: string | null = null;
         while (true) {
-          // Keep lock alive so other tabs don't hijack the process
-          localStorage.setItem('digen_lock_timestamp', Date.now().toString());
-          
           if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
           await new Promise(r => setTimeout(r, 5000));
           try {
@@ -456,8 +457,6 @@ export default function GlobalAutoPilot() {
                 if (data.result.isNativeDownload || true) { // Always use native download for video
                    writeLog('Video generation finished! Now waiting for the .mp4 file to finish downloading (up to 3 minutes)...');
                    for (let j = 0; j < 36; j++) {
-                      // Keep lock alive while polling
-                      localStorage.setItem('digen_lock_timestamp', Date.now().toString());
                       await new Promise(r => setTimeout(r, 5000));
                       writeLog(`  Polling for .mp4 in Downloads... attempt ${j+1}/36`);
                       try {
