@@ -224,6 +224,7 @@ export default function GlobalAutoPilot() {
       writeLog('Preparing product & model images for extension...');
       let productImgBase64: any = null;
       let modelImgBase64: any = null;
+      let generatedImageFilepath: string | null = null;
       
       const fetchBase64 = async (url: string) => {
         try {
@@ -301,7 +302,8 @@ export default function GlobalAutoPilot() {
                          const mediaRes = await fetch(`http://localhost:3001/api/latest-media?type=image&job_start_time=${imageJobStartTime}`);
                          const mediaData = await mediaRes.json();
                          if (mediaData.success && (mediaData.base64 || mediaData.filepath)) {
-                             generatedImageBase64 = mediaData.filepath || mediaData.base64;
+                             generatedImageBase64 = mediaData.base64;
+                             generatedImageFilepath = mediaData.filepath;
                              writeLog(`  ✅ Found image in Downloads: ${mediaData.filename}`);
                              break;
                          } else {
@@ -329,13 +331,13 @@ export default function GlobalAutoPilot() {
         writeLog('Uploading generated image to Vercel Cloud Storage...');
         try {
           let uploadUrl = null;
-          // If generatedImageBase64 is an absolute path (C:\...), upload locally via server.js
-          if (generatedImageBase64.includes('\\') || generatedImageBase64.includes('/')) {
+          // If generatedImageFilepath is available, upload locally via server.js
+          if (generatedImageFilepath) {
             writeLog('Uploading directly from local server (bypasses 4MB limit)...');
             const localRes = await fetch('http://localhost:3001/api/upload-local', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ filepath: generatedImageBase64 })
+              body: JSON.stringify({ filepath: generatedImageFilepath })
             });
             const localData = await localRes.json();
             if (localData.url) {
