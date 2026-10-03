@@ -74,9 +74,20 @@ export default function GlobalAutoPilot() {
           return;
       }
 
-      isAutomatingRef.current = true;
+      // Immediately claim the lock so other Strict Mode instances or tabs fail the check
+      localStorage.setItem('digen_lock_timestamp', Date.now().toString());
       localStorage.setItem('digen_is_running', 'true');
       localStorage.setItem('digen_stop_requested', 'false');
+      
+      // Atomic-like verification to prevent absolute simultaneous execution
+      const runId = Math.random().toString();
+      localStorage.setItem('digen_running_id', runId);
+      await new Promise(r => setTimeout(r, 50));
+      if (localStorage.getItem('digen_running_id') !== runId) {
+          return; // Another instance stole the lock in the exact same millisecond!
+      }
+      
+      isAutomatingRef.current = true;
       
       try {
         await runHeadlessAutomation();
