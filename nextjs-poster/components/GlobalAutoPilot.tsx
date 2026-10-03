@@ -70,8 +70,8 @@ export default function GlobalAutoPilot() {
       
       // Cross-tab / React Strict Mode concurrency lock
       const lastLock = parseInt(localStorage.getItem('digen_lock_timestamp') || '0');
-      // Use a generous 60-second lock because inactive browser tabs throttle setInterval heavily
-      if (Date.now() - lastLock < 60000 && localStorage.getItem('digen_is_running') === 'true') {
+      // Use a highly generous 5-minute lock (300000ms) because fully inactive browser tabs can throttle setInterval up to 5 minutes!
+      if (Date.now() - lastLock < 300000 && localStorage.getItem('digen_is_running') === 'true') {
           return;
       }
 
