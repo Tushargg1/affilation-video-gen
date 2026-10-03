@@ -2,14 +2,6 @@ import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 
-// Increase body size limit for video uploads (videos can be 50+ MB as base64)
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-  },
-};
 
 // Also needed for Next.js App Router (route handlers)
 export const maxDuration = 60; // 60 second timeout for large uploads

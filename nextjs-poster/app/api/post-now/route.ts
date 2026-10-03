@@ -38,25 +38,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Could not determine host URL.' }, { status: 500 });
     }
 
-    // Store a history entry in Redis
-    let messageId = `manual_${Date.now()}`;
-    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-      const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
-      await redis.hset('app:posts', {
-        [messageId]: {
-          id: messageId,
-          blobName: `product_${product.id}.mp4`,
-          platforms: ['youtube', 'facebook', 'instagram'],
-          scheduleTime: new Date().toISOString(),
-          status: 'PENDING',
-          createdAt: new Date().toISOString(),
-        }
-      });
-    }
-
     // Dispatch to QStash to run the actual posting in the background (avoids timeout)
     const qstash = new Client({ token: process.env.QSTASH_TOKEN! });
-    await qstash.publishJSON({
+    const res = await qstash.publishJSON({
       url: `${protocol}://${host}/api/post`,
       body: {
         videoUrl: product.downloaded_video_path,
@@ -67,6 +51,21 @@ export async function POST(request: Request) {
         platforms: ['youtube', 'facebook', 'instagram'],
       },
     });
+
+    // Store a history entry in Redis using the REAL messageId from QStash
+    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+      const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN });
+      await redis.hset('app:posts', {
+        [res.messageId]: {
+          id: res.messageId,
+          blobName: `product_${product.id}.mp4`,
+          platforms: ['youtube', 'facebook', 'instagram'],
+          scheduleTime: new Date().toISOString(),
+          status: 'PENDING',
+          createdAt: new Date().toISOString(),
+        }
+      });
+    }
 
     return NextResponse.json({ 
       success: true, 

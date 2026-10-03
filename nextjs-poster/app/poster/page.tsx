@@ -28,7 +28,7 @@ export default function Home() {
   const [skipZero, setSkipZero] = useState(true);
   
   // Auto Scheduler States
-  const [schedulerConfig, setSchedulerConfig] = useState({
+  const [schedulerConfig, setSchedulerConfig] = useState<any>({
     scheduler_enabled: true,
     daily_target: 4,
     schedule_times: ['02:00', '06:00', '09:00', '19:00']
@@ -516,7 +516,7 @@ export default function Home() {
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-3">Posting Times (Local Time)</label>
                 <div className="grid grid-cols-2 gap-3">
-                  {schedulerConfig.schedule_times.map((time, index) => (
+                  {schedulerConfig.schedule_times?.map((time: any, index: number) => (
                     <div key={index} className="flex items-center">
                       <span className="text-xs font-bold text-slate-400 w-6">#{index + 1}</span>
                       <input

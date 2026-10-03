@@ -28,7 +28,7 @@ export default function Home() {
   const [skipZero, setSkipZero] = useState(true);
   
   // Auto Scheduler States
-  const [schedulerConfig, setSchedulerConfig] = useState({
+  const [schedulerConfig, setSchedulerConfig] = useState<any>({
     scheduler_enabled: true,
     daily_target: 4,
     schedule_times: ['02:00', '06:00', '09:00', '19:00']
