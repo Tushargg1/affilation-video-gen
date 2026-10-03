@@ -106,12 +106,19 @@ export default function GlobalAutoPilot() {
 
   const runHeadlessAutomation = async () => {
     // 1. Fetch latest config and products
-    const configRes = await fetch('/api/config');
-    const config = configRes.ok ? await configRes.json() : { daily_target: 4 };
-    
-    const prodRes = await fetch('/api/db/products');
-    const prodData = prodRes.ok ? await prodRes.json() : { products: [] };
-    const products = prodData.products || [];
+    let config = { daily_target: 4 };
+    let products: any[] = [];
+    try {
+        const configRes = await fetch('/api/config');
+        config = configRes.ok ? await configRes.json() : { daily_target: 4 };
+        
+        const prodRes = await fetch('/api/db/products');
+        const prodData = prodRes.ok ? await prodRes.json() : { products: [] };
+        products = prodData.products || [];
+    } catch(e) {
+        writeLog('❌ Failed to fetch config/products from database. Trying again later...');
+        return;
+    }
 
     // Calculate how many products were already generated today
     const todayString = new Date().toDateString();
@@ -165,11 +172,13 @@ export default function GlobalAutoPilot() {
         imgPrompt = imgData.text;
         writeLog(`✅ Image Prompt saved!`);
         if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); return; }
-        await fetch('/api/db/products/update-prompt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: prod.id, image_prompt: imgPrompt, used_model: imgData.usedModel })
-        });
+        try {
+          await fetch('/api/db/products/update-prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: prod.id, image_prompt: imgPrompt, used_model: imgData.usedModel })
+          });
+        } catch(e) {}
       } else {
         writeLog(`[Image Prompt] Already exists, skipping generation.`);
       }
@@ -181,14 +190,21 @@ export default function GlobalAutoPilot() {
       
       const fetchBase64 = async (url: string) => {
         try {
+          // Keep lock alive right before fetch because fetching via proxy can be slow!
+          localStorage.setItem('digen_lock_timestamp', Date.now().toString());
           const res = await fetch('/api/proxy-image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url })
           });
           const data = await res.json();
+          // Keep lock alive right after fetch
+          localStorage.setItem('digen_lock_timestamp', Date.now().toString());
           return data.base64 || null;
-        } catch(e) { return null; }
+        } catch(e) { 
+          localStorage.setItem('digen_lock_timestamp', Date.now().toString());
+          return null; 
+        }
       };
 
       if (prod.image_url) {
@@ -344,11 +360,13 @@ export default function GlobalAutoPilot() {
         );
         vidPrompt = vidData.text;
         writeLog(`✅ Video Prompt saved!`);
-        await fetch('/api/db/products/update-prompt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: prod.id, video_prompt: vidPrompt, used_model: vidData.usedModel })
-        });
+        try {
+          await fetch('/api/db/products/update-prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: prod.id, video_prompt: vidPrompt, used_model: vidData.usedModel })
+          });
+        } catch(e) {}
       } else {
         writeLog(`[Video Prompt] Already exists, skipping generation.`);
       }

@@ -516,6 +516,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
 
   const runDailyAutomation = async () => {
     // Tell the GlobalAutoPilot to wake up and run immediately
+    localStorage.setItem('digen_logs', '[]'); // Clear old logs!
     localStorage.setItem('digen_stop_requested', 'false');
     localStorage.setItem('digen_force_run', 'true');
     localStorage.setItem('digen_is_running', 'true'); // optimistic UI update
