@@ -25,6 +25,9 @@ export async function POST(request: Request) {
       });
     }
     
+    // Always track when the product media was last updated
+    updatePayload.updated_at = new Date().toISOString();
+    
     const { error } = await supabase
       .from('auto_products')
       .update(updatePayload)

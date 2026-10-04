@@ -18,6 +18,9 @@ export async function POST(req: Request) {
     if (model_photo_url !== undefined) updates.model_photo_url = model_photo_url;
     if (video_url !== undefined) updates.video_url = video_url;
     if (image_url !== undefined) updates.image_url = image_url;
+    
+    // Always track when the prompt was last updated
+    updates.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
       .from('auto_products')
