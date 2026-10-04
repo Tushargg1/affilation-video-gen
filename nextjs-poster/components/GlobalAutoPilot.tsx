@@ -264,7 +264,7 @@ export default function GlobalAutoPilot() {
       let generatedImageBase64: string | null = null;
       if (!prod.downloaded_image_path) {
         if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
-        try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
+        try { await fetch('http://localhost:3001/api/result', { cache: 'no-store' }); } catch(e) {}
         writeLog('Sending Image Prompt to extension to generate the image...');
         const imageJobStartTime = Date.now();
         try {
@@ -294,7 +294,7 @@ export default function GlobalAutoPilot() {
              break;
           }
           try {
-            const res = await fetch('http://localhost:3001/api/result');
+            const res = await fetch('http://localhost:3001/api/result', { cache: 'no-store' });
             if (res.ok) {
               const data = await res.json();
               if (data.hasResult) {
@@ -310,7 +310,7 @@ export default function GlobalAutoPilot() {
                       await new Promise(r => setTimeout(r, 5000));
                       writeLog(`  Polling for downloaded image... attempt ${j+1}/36`);
                       try {
-                         const mediaRes = await fetch(`http://localhost:3001/api/latest-media?type=image&job_start_time=${imageJobStartTime}`);
+                         const mediaRes = await fetch(`http://localhost:3001/api/latest-media?type=image&job_start_time=${imageJobStartTime}`, { cache: 'no-store' });
                          const mediaData = await mediaRes.json();
                          if (mediaData.success && (mediaData.base64 || mediaData.filepath)) {
                              generatedImageBase64 = mediaData.base64;
@@ -421,7 +421,7 @@ export default function GlobalAutoPilot() {
       // ─── STEP 5: Send VIDEO PROMPT + generated image to extension → generate video ───
       if (!prod.downloaded_video_path) {
         if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
-        try { await fetch('http://localhost:3001/api/result'); } catch(e) {}
+        try { await fetch('http://localhost:3001/api/result', { cache: 'no-store' }); } catch(e) {}
         writeLog('Sending Video Prompt + generated image to extension to create the video...');
         const videoJobStartTime = Date.now();
         
@@ -460,7 +460,7 @@ export default function GlobalAutoPilot() {
              break;
           }
           try {
-            const res = await fetch('http://localhost:3001/api/result');
+            const res = await fetch('http://localhost:3001/api/result', { cache: 'no-store' });
             if (res.ok) {
               const data = await res.json();
               if (data.hasResult) {
@@ -481,7 +481,7 @@ export default function GlobalAutoPilot() {
                       await new Promise(r => setTimeout(r, 5000));
                       writeLog(`  Polling for .mp4 in Downloads... attempt ${j+1}/36`);
                       try {
-                         const vidRes = await fetch(`http://localhost:3001/api/latest-media?type=video&job_start_time=${videoJobStartTime}`);
+                         const vidRes = await fetch(`http://localhost:3001/api/latest-media?type=video&job_start_time=${videoJobStartTime}`, { cache: 'no-store' });
                          const vidData = await vidRes.json();
                          if (vidData.success && (vidData.base64 || vidData.filepath)) {
                              finalVideoUrl = vidData.filepath || vidData.base64; // Store filepath if available, else base64

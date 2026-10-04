@@ -338,7 +338,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     for (let i = 0; i < 120; i++) { // Poll for up to 10 minutes
       await new Promise(r => setTimeout(r, 5000));
       try {
-        const res = await fetch('http://localhost:3001/api/result');
+        const res = await fetch('http://localhost:3001/api/result', { cache: 'no-store' });
         const data = await res.json();
         if (data.hasResult && data.result && data.result.success) {
           
@@ -353,7 +353,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
                       await new Promise(r => setTimeout(r, 5000));
                       setStatus({ type: 'info', message: `Polling for .mp4... attempt ${j+1}/36` });
                       try {
-                         const vidRes = await fetch(`http://localhost:3001/api/latest-media?type=video&job_start_time=${jobStartTime}`);
+                         const vidRes = await fetch(`http://localhost:3001/api/latest-media?type=video&job_start_time=${jobStartTime}`, { cache: 'no-store' });
                          const vidData = await vidRes.json();
                          if (vidData.success && (vidData.base64 || vidData.filepath)) {
                              base64ToUpload = vidData.filepath || vidData.base64;
@@ -372,7 +372,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
                    for (let j = 0; j < 36; j++) {
                       await new Promise(r => setTimeout(r, 5000));
                       try {
-                         const imgRes = await fetch(`http://localhost:3001/api/latest-media?type=image&job_start_time=${jobStartTime}`);
+                         const imgRes = await fetch(`http://localhost:3001/api/latest-media?type=image&job_start_time=${jobStartTime}`, { cache: 'no-store' });
                          const imgData = await imgRes.json();
                          if (imgData.success && (imgData.base64 || imgData.filepath)) { 
                              base64ToUpload = imgData.filepath || imgData.base64; 
