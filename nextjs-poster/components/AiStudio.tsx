@@ -533,7 +533,8 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     localStorage.setItem('digen_logs', '[]'); // Clear old logs!
     localStorage.setItem('digen_stop_requested', 'false');
     localStorage.setItem('digen_force_run', 'true');
-    localStorage.setItem('digen_is_running', 'true'); // optimistic UI update
+    // Force clear the lock so it doesn't get stuck waiting 5 minutes if it was stopped recently!
+    localStorage.setItem('digen_lock_timestamp', '0'); 
     setIsAutomating(true);
     setIsStopping(false);
   };
