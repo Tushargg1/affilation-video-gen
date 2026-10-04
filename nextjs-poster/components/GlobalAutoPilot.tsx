@@ -306,6 +306,7 @@ export default function GlobalAutoPilot() {
                 if (data.result.isNativeDownload) {
                    writeLog(`Image generation finished! Waiting for local download to complete (up to 3 minutes)...`);
                    for (let j = 0; j < 36; j++) {
+                      if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
                       await new Promise(r => setTimeout(r, 5000));
                       writeLog(`  Polling for downloaded image... attempt ${j+1}/36`);
                       try {
@@ -476,6 +477,7 @@ export default function GlobalAutoPilot() {
                 if (data.result.isNativeDownload || true) { // Always use native download for video
                    writeLog('Video generation finished! Now waiting for the .mp4 file to finish downloading (up to 3 minutes)...');
                    for (let j = 0; j < 36; j++) {
+                      if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
                       await new Promise(r => setTimeout(r, 5000));
                       writeLog(`  Polling for .mp4 in Downloads... attempt ${j+1}/36`);
                       try {
@@ -548,7 +550,10 @@ export default function GlobalAutoPilot() {
       }
 
       writeLog('Waiting 15 seconds before processing the next product...');
-      await new Promise(r => setTimeout(r, 15000));
+      for(let w = 0; w < 15; w++) {
+        if (shouldStop()) break;
+        await new Promise(r => setTimeout(r, 1000));
+      }
     }
     writeLog('\n✅ Daily Automation Complete! All products processed.');
   };
