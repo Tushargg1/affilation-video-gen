@@ -53,13 +53,17 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   const [status, setStatus] = useState<{type: string, message: string} | null>(null);
   
   const [isAutomating, setIsAutomating] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
   const [automationLog, setAutomationLog] = useState<string[]>([]);
   
   // Sync UI state with GlobalAutoPilot
   useEffect(() => {
     const interval = setInterval(() => {
       const running = localStorage.getItem('digen_is_running') === 'true';
+      const stopRequested = localStorage.getItem('digen_stop_requested') === 'true';
+      
       setIsAutomating(running);
+      setIsStopping(running && stopRequested);
       
       const logs = localStorage.getItem('digen_logs');
       if (logs) {
@@ -531,11 +535,12 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     localStorage.setItem('digen_force_run', 'true');
     localStorage.setItem('digen_is_running', 'true'); // optimistic UI update
     setIsAutomating(true);
+    setIsStopping(false);
   };
 
   const stopAutomation = () => {
     localStorage.setItem('digen_stop_requested', 'true');
-    setIsAutomating(false); // optimistic UI update
+    setIsStopping(true);
   };
 
   // Statistics Calculations
@@ -587,12 +592,14 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
 
           <button 
             onClick={runDailyAutomation}
-            disabled={isAutomating}
+            disabled={isAutomating || isStopping}
             className="relative inline-flex h-12 overflow-hidden rounded-full p-[2px] focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-50 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-95"
           >
             <span className="absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#E2CBFF_0%,#393BB2_50%,#E2CBFF_100%)]" />
             <span className="inline-flex h-full w-full cursor-pointer items-center justify-center rounded-full bg-slate-950 px-6 py-1 text-sm font-bold text-white backdrop-blur-3xl gap-2">
-              {isAutomating ? (
+              {isStopping ? (
+                <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Stopping...</>
+              ) : isAutomating ? (
                 <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Running...</>
               ) : (
                 <>🤖 Start Daily Automation</>
@@ -600,7 +607,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
             </span>
           </button>
 
-          {isAutomating && (
+          {isAutomating && !isStopping && (
             <button
               onClick={stopAutomation}
               className="relative inline-flex h-12 items-center justify-center rounded-full bg-red-500 hover:bg-red-600 px-6 text-sm font-bold text-white transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-red-200 gap-2"

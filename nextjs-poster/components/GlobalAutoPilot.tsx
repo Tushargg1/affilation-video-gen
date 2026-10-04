@@ -19,6 +19,10 @@ const callGeminiWithInfiniteFallback = async (prompt: string, imageUrl: string, 
   let attempt = 0;
   
   while (true) {
+    if (shouldStop()) {
+      writeLog('🛑 Automation stopped by user.');
+      return { text: '', usedModel: '' };
+    }
     const currentModel = models[attempt % models.length];
     writeLog(`${logPrefix} Generating via ${currentModel}...`);
     
