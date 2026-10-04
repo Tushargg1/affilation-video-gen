@@ -436,7 +436,7 @@ export default function GlobalAutoPilot() {
           await fetch('http://localhost:3001/api/job', { method: 'DELETE' }).catch(() => {});
           await fetch('http://localhost:3001/api/result', { method: 'DELETE' }).catch(() => {});
 
-          const videoInputImages = [videoReferenceBase64, productImgBase64].filter(Boolean);
+          const videoInputImages = [videoReferenceBase64, modelImgBase64].filter(Boolean);
           await fetch('http://localhost:3001/api/job', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
