@@ -284,9 +284,15 @@ export default function GlobalAutoPilot() {
 
         // Poll for generated image
         writeLog('Waiting for Image to be generated... (Takes a few minutes)');
+        let imgWaitLoops = 0;
         while (true) {
           if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
           await new Promise(r => setTimeout(r, 5000));
+          imgWaitLoops++;
+          if (imgWaitLoops > 240) { // 20 minutes timeout
+             writeLog('❌ Timed out waiting for image generation (20 minutes). Skipping to next product.');
+             break;
+          }
           try {
             const res = await fetch('http://localhost:3001/api/result');
             if (res.ok) {
@@ -443,9 +449,15 @@ export default function GlobalAutoPilot() {
         // Poll for generated video
         writeLog('Waiting for Video to be generated... (Takes a few minutes)');
         let finalVideoUrl: string | null = null;
+        let waitLoops = 0;
         while (true) {
           if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
           await new Promise(r => setTimeout(r, 5000));
+          waitLoops++;
+          if (waitLoops > 240) { // 240 * 5s = 20 minutes timeout
+             writeLog('❌ Timed out waiting for video generation (20 minutes). Skipping to next product.');
+             break;
+          }
           try {
             const res = await fetch('http://localhost:3001/api/result');
             if (res.ok) {
