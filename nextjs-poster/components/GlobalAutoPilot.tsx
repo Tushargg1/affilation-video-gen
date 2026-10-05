@@ -127,9 +127,22 @@ export default function GlobalAutoPilot() {
     };
   }, []);
 
+  const getNextScheduleTime = (count: number, config: any) => {
+    const target = new Date();
+    const times = config.schedule_times || ['02:00', '06:00', '09:00', '19:00'];
+    if (count >= times.length) return null;
+    const timeStr = times[count];
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    target.setHours(hours, minutes || 0, 0, 0);
+    if (target < new Date()) {
+        target.setDate(target.getDate() + 1);
+    }
+    return target.toISOString();
+  };
+
   const runHeadlessAutomation = async () => {
     // 1. Fetch latest config and products
-    let config = { daily_target: 4 };
+    let config: any = { daily_target: 4 };
     let products: any[] = [];
     try {
         const configRes = await fetch('/api/config');
@@ -187,6 +200,7 @@ export default function GlobalAutoPilot() {
 
     writeLog(`Found ${pendingProducts.length} pending products. Daily Quota remaining: ${remainingQuota}. Starting generation...`);
 
+    let currentCount = todayGeneratedCount;
     for (const prod of pendingProducts) {
       // Keep lock alive at start of each product
       localStorage.setItem('digen_lock_timestamp', Date.now().toString());
@@ -539,6 +553,30 @@ export default function GlobalAutoPilot() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: prod.id, social_link_2: uploadUrl, video_created: true })
               });
+              
+              // Auto-schedule to QStash
+              const scheduleTime = getNextScheduleTime(currentCount, config);
+              if (scheduleTime && config.scheduler_enabled) {
+                 writeLog(`Scheduling post for ${new Date(scheduleTime).toLocaleString()}...`);
+                 try {
+                     await fetch('/api/schedule', {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({
+                             videoUrl: uploadUrl,
+                             blobName: `video_${prod.id}_${Date.now()}.mp4`,
+                             description: '', 
+                             platforms: ['youtube', 'facebook', 'instagram'],
+                             scheduleTime: scheduleTime,
+                             productId: prod.id
+                         })
+                     });
+                     currentCount++;
+                 } catch(e) {
+                     writeLog('⚠️ Failed to auto-schedule video.');
+                 }
+              }
+              
               writeLog(`🎉 Finished Product: ${prod.title}!`);
             }
           } catch (e) {
