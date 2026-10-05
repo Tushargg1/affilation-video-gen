@@ -186,44 +186,6 @@ export default function GlobalAutoPilot() {
     const dailyLimit = config.daily_target || 4;
     let currentCount = todayGeneratedCount;
 
-    // --- SWEEP FOR UNPOSTED FINISHED VIDEOS ---
-    if (config.scheduler_enabled) {
-      try {
-        const histRes = await fetch('/api/history');
-        const histData = await histRes.json();
-        const scheduledIds = Object.values(histData.posts || {})
-            .filter((p: any) => p.status === 'PENDING' || p.status === 'POSTED' || p.status === 'IG_PROCESSING' || p.status === 'PARTIAL_SUCCESS')
-            .map((p: any) => p.productId);
-
-        const unscheduled = products.filter((p: any) => 
-            p.downloaded_video_path && 
-            !p.is_posted && 
-            !scheduledIds.includes(p.id)
-        );
-
-        for (const un of unscheduled) {
-            const scheduleTime = getNextScheduleTime(currentCount, config);
-            if (scheduleTime) {
-                writeLog(`📅 Scheduling existing video: ${un.title} for ${new Date(scheduleTime).toLocaleString()}`);
-                await fetch('/api/schedule', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        videoUrl: un.downloaded_video_path,
-                        imageUrl: un.downloaded_image_path,
-                        productId: un.id,
-                        platforms: ['youtube', 'facebook', 'instagram'],
-                        delayUntil: scheduleTime
-                    })
-                });
-                currentCount++;
-            }
-        }
-      } catch (e) {
-          console.error("Failed to sweep unscheduled posts:", e);
-      }
-    }
-
     const remainingQuota = dailyLimit - currentCount;
 
     if (remainingQuota <= 0) {
@@ -615,30 +577,8 @@ export default function GlobalAutoPilot() {
                 body: JSON.stringify({ id: prod.id, social_link_2: uploadUrl, video_created: true })
               });
               
-              // Auto-schedule to QStash
-              const scheduleTime = getNextScheduleTime(genCount, config);
-              if (scheduleTime && config.scheduler_enabled) {
-                 writeLog(`Scheduling post for ${new Date(scheduleTime).toLocaleString()}...`);
-                 try {
-                     await fetch('/api/schedule', {
-                         method: 'POST',
-                         headers: { 'Content-Type': 'application/json' },
-                         body: JSON.stringify({
-                             videoUrl: uploadUrl,
-                             blobName: `video_${prod.id}_${Date.now()}.mp4`,
-                             description: '', 
-                             platforms: ['youtube', 'facebook', 'instagram'],
-                             scheduleTime: scheduleTime,
-                             productId: prod.id
-                         })
-                     });
-                     genCount++;
-                 } catch(e) {
-                     writeLog('⚠️ Failed to auto-schedule video.');
-                 }
-              }
-              
-              writeLog(`🎉 Finished Product: ${prod.title}!`);
+              writeLog(`🎉 Finished Product: ${prod.title}! It is now in the queue for auto-posting.`);
+              genCount++;
             }
           } catch (e) {
               writeLog('❌ Failed to upload video to Vercel.');

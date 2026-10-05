@@ -70,6 +70,38 @@ export async function POST(request: Request) {
     const newConfig = { ...defaultConfig, ...(current as any || {}), ...body };
     await redis.set('app:scheduler_config', newConfig);
     
+    // Synchronize QStash CRON schedules based on the new posting times
+    if (process.env.QSTASH_TOKEN) {
+      try {
+        const { Client } = require('@upstash/qstash');
+        const qstash = new Client({ token: process.env.QSTASH_TOKEN });
+        
+        const existingSchedules = await qstash.schedules.list();
+        for (const schedule of existingSchedules) {
+           await qstash.schedules.delete(schedule.scheduleId);
+        }
+
+        if (newConfig.scheduler_enabled && newConfig.schedule_times) {
+          const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+          const host = request.headers.get('host') || process.env.VERCEL_PROJECT_PRODUCTION_URL || '';
+          if (host) {
+            const targetUrl = `${protocol}://${host}/api/cron/post-next`;
+            for (const timeStr of newConfig.schedule_times) {
+               const [hh, mm] = timeStr.split(':');
+               const cronStr = `${Number(mm)} ${Number(hh)} * * *`;
+               
+               await qstash.schedules.create({
+                  destination: targetUrl,
+                  cron: cronStr,
+               });
+            }
+          }
+        }
+      } catch (qstashErr: any) {
+        console.error("Failed to sync QStash schedules:", qstashErr);
+      }
+    }
+    
     return NextResponse.json({ success: true, config: newConfig }, { headers: corsHeaders });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
