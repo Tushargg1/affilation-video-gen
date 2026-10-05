@@ -128,16 +128,37 @@ export default function GlobalAutoPilot() {
   }, []);
 
   const getNextScheduleTime = (count: number, config: any) => {
-    const target = new Date();
     const times = config.schedule_times || ['02:00', '06:00', '09:00', '19:00'];
-    if (count >= times.length) return null;
-    const timeStr = times[count];
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    target.setHours(hours, minutes || 0, 0, 0);
-    if (target < new Date()) {
-        target.setDate(target.getDate() + 1);
+    if (times.length === 0) return null;
+    
+    const now = new Date();
+    let startIndex = 0;
+    let startDaysToAdd = 0;
+    
+    for (let i = 0; i < times.length; i++) {
+        const target = new Date();
+        const [hours, minutes] = times[i].split(':').map(Number);
+        target.setHours(hours, minutes || 0, 0, 0);
+        if (target > now) {
+            startIndex = i;
+            break;
+        }
+        if (i === times.length - 1) {
+            startIndex = 0;
+            startDaysToAdd = 1;
+        }
     }
-    return target.toISOString();
+    
+    const totalIndex = startIndex + count;
+    const additionalDays = Math.floor(totalIndex / times.length);
+    const finalIndex = totalIndex % times.length;
+    
+    const finalTarget = new Date();
+    const [h, m] = times[finalIndex].split(':').map(Number);
+    finalTarget.setHours(h, m || 0, 0, 0);
+    finalTarget.setDate(finalTarget.getDate() + startDaysToAdd + additionalDays);
+    
+    return finalTarget.toISOString();
   };
 
   const runHeadlessAutomation = async () => {
