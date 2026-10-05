@@ -150,21 +150,27 @@ export default function ProductsGallery() {
     { id: 'VID_PROMPT', label: 'Vid Prompt' },
     { id: 'IMG_GEN', label: 'Img Generated' },
     { id: 'VID_GEN', label: 'Vid Generated' },
+    { id: 'TO_BE_POSTED', label: 'To Be Posted' },
     { id: 'POSTED', label: 'Posted' },
     { id: 'AFFILIATED', label: 'Affiliated' }
   ];
 
-  const filteredProducts = products.filter(p => {
+  let filteredProducts = products.filter(p => {
     if (filter === 'ALL') return true;
     if (filter === 'JUST_EXTRACTED') return !p.image_prompt && !p.video_prompt && !p.downloaded_image_path && !p.downloaded_video_path;
     if (filter === 'IMG_PROMPT') return !!p.image_prompt;
     if (filter === 'VID_PROMPT') return !!p.video_prompt;
     if (filter === 'IMG_GEN') return !!p.downloaded_image_path;
     if (filter === 'VID_GEN') return !!p.downloaded_video_path;
+    if (filter === 'TO_BE_POSTED') return !!p.downloaded_video_path && !p.is_posted;
     if (filter === 'POSTED') return !!p.is_posted;
     if (filter === 'AFFILIATED') return !!p.is_affiliated;
     return true;
   });
+
+  if (filter === 'TO_BE_POSTED') {
+    filteredProducts = [...filteredProducts].sort((a, b) => a.id - b.id);
+  }
 
 
   return (
