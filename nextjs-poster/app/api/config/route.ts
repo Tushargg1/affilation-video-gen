@@ -87,8 +87,13 @@ export async function POST(request: Request) {
           if (host) {
             const targetUrl = `${protocol}://${host}/api/cron/post-next`;
             for (const timeStr of newConfig.schedule_times) {
-               const [hh, mm] = timeStr.split(':');
-               const cronStr = `${Number(mm)} ${Number(hh)} * * *`;
+               const [hh, mm] = timeStr.split(':').map(Number);
+               // Convert IST (UTC+5:30) to UTC for QStash Cron
+               let totalMins = hh * 60 + mm - 330;
+               if (totalMins < 0) totalMins += 24 * 60;
+               const utcHh = Math.floor(totalMins / 60);
+               const utcMm = totalMins % 60;
+               const cronStr = `${utcMm} ${utcHh} * * *`;
                
                await qstash.schedules.create({
                   destination: targetUrl,
