@@ -703,12 +703,13 @@ export default function Home() {
                             <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
                               <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm ${
                                 post.status === 'POSTED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+                                post.status === 'PARTIAL_SUCCESS' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
                                 post.status === 'ERROR' ? 'bg-red-100 text-red-700 border border-red-200' :
                                 isPending ? 'bg-amber-100 text-amber-700 border border-amber-200' :
                                 isIgProcessing ? 'bg-blue-100 text-blue-700 border border-blue-200' :
                                 'bg-slate-200 text-slate-500 border border-slate-300'
                               }`}>
-                                {isIgProcessing ? 'Processing IG' : post.status}
+                                {isIgProcessing ? 'Processing IG' : post.status === 'PARTIAL_SUCCESS' ? 'Partial Post' : post.status}
                               </span>
                               
                               {isPending && (

@@ -125,7 +125,8 @@ async function handler(request: Request) {
             
             if (fbData.error) throw new Error(fbData.error.message);
             if (fbData.id) {
-              postLinks.facebook = `https://www.facebook.com/video.php?v=${fbData.id}`;
+              // The API returns the true video ID. Let's use standard FB watch format.
+              postLinks.facebook = `https://www.facebook.com/watch/?v=${fbData.id}`;
             }
         } catch (err: any) {
             console.error('Facebook upload failed:', err);
@@ -187,6 +188,12 @@ async function handler(request: Request) {
     }
 
     // 5. Cleanup and Status Update
+    // Only throw AFTER updating Redis, but if there's an error, mark it as PARTIAL_SUCCESS or ERROR
+    let finalStatus = 'POSTED';
+    if (platformErrors.length > 0) {
+       finalStatus = 'PARTIAL_SUCCESS';
+    }
+
     if (!isIgDelayed) {
        console.log('Scheduling Vercel Blob cleanup in 48 hours...');
        const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
@@ -202,7 +209,7 @@ async function handler(request: Request) {
          const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN! });
          const existing = await redis.hget('app:posts', messageId);
          if (existing) {
-           await redis.hset('app:posts', { [messageId]: { ...(existing as any), status: 'POSTED', links: { ...((existing as any).links || {}), ...postLinks } } });
+           await redis.hset('app:posts', { [messageId]: { ...(existing as any), status: finalStatus, links: { ...((existing as any).links || {}), ...postLinks }, error: platformErrors.join(' | ') } });
          }
        }
     } else {
@@ -210,7 +217,7 @@ async function handler(request: Request) {
          const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN! });
          const existing = await redis.hget('app:posts', messageId);
          if (existing) {
-           await redis.hset('app:posts', { [messageId]: { ...(existing as any), status: 'IG_PROCESSING', links: { ...((existing as any).links || {}), ...postLinks } } });
+           await redis.hset('app:posts', { [messageId]: { ...(existing as any), status: 'IG_PROCESSING', links: { ...((existing as any).links || {}), ...postLinks }, error: platformErrors.join(' | ') } });
          }
        }
     }
@@ -230,10 +237,6 @@ async function handler(request: Request) {
       }
     } catch (e) {
       console.error("Failed to update Supabase with post links:", e);
-    }
-
-    if (platformErrors.length > 0) {
-       throw new Error(`Partial failure: ${platformErrors.join(' | ')}`);
     }
 
     return NextResponse.json({ success: true, links: postLinks });
