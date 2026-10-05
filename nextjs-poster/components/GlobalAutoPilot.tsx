@@ -163,7 +163,47 @@ export default function GlobalAutoPilot() {
     ).length;
 
     const dailyLimit = config.daily_target || 4;
-    const remainingQuota = dailyLimit - todayGeneratedCount;
+    let currentCount = todayGeneratedCount;
+
+    // --- SWEEP FOR UNPOSTED FINISHED VIDEOS ---
+    if (config.scheduler_enabled) {
+      try {
+        const histRes = await fetch('/api/history');
+        const histData = await histRes.json();
+        const scheduledIds = Object.values(histData.posts || {})
+            .filter((p: any) => p.status === 'PENDING' || p.status === 'POSTED' || p.status === 'IG_PROCESSING' || p.status === 'PARTIAL_SUCCESS')
+            .map((p: any) => p.productId);
+
+        const unscheduled = products.filter((p: any) => 
+            p.downloaded_video_path && 
+            !p.is_posted && 
+            !scheduledIds.includes(p.id)
+        );
+
+        for (const un of unscheduled) {
+            const scheduleTime = getNextScheduleTime(currentCount, config);
+            if (scheduleTime) {
+                writeLog(`📅 Scheduling existing video: ${un.title} for ${new Date(scheduleTime).toLocaleString()}`);
+                await fetch('/api/schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        videoUrl: un.downloaded_video_path,
+                        imageUrl: un.downloaded_image_path,
+                        productId: un.id,
+                        platforms: ['youtube', 'facebook', 'instagram'],
+                        delayUntil: scheduleTime
+                    })
+                });
+                currentCount++;
+            }
+        }
+      } catch (e) {
+          console.error("Failed to sweep unscheduled posts:", e);
+      }
+    }
+
+    const remainingQuota = dailyLimit - currentCount;
 
     if (remainingQuota <= 0) {
       writeLog(`✅ Daily limit reached! (${todayGeneratedCount}/${dailyLimit} generated today).`);
@@ -200,7 +240,7 @@ export default function GlobalAutoPilot() {
 
     writeLog(`Found ${pendingProducts.length} pending products. Daily Quota remaining: ${remainingQuota}. Starting generation...`);
 
-    let currentCount = todayGeneratedCount;
+    let genCount = currentCount;
     for (const prod of pendingProducts) {
       // Keep lock alive at start of each product
       localStorage.setItem('digen_lock_timestamp', Date.now().toString());
@@ -555,7 +595,7 @@ export default function GlobalAutoPilot() {
               });
               
               // Auto-schedule to QStash
-              const scheduleTime = getNextScheduleTime(currentCount, config);
+              const scheduleTime = getNextScheduleTime(genCount, config);
               if (scheduleTime && config.scheduler_enabled) {
                  writeLog(`Scheduling post for ${new Date(scheduleTime).toLocaleString()}...`);
                  try {
@@ -571,7 +611,7 @@ export default function GlobalAutoPilot() {
                              productId: prod.id
                          })
                      });
-                     currentCount++;
+                     genCount++;
                  } catch(e) {
                      writeLog('⚠️ Failed to auto-schedule video.');
                  }
