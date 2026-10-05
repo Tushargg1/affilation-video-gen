@@ -66,6 +66,7 @@ export async function POST(request: Request) {
           platforms,
           scheduleTime,
           status: 'PENDING',
+          productId: productId || null,
           createdAt: new Date().toISOString(),
         }
       });
