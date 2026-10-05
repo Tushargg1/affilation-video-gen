@@ -9,8 +9,7 @@ echo.
 cd /d "%~dp0"
 
 echo Starting Next.js Local Server...
-:: nextjs-poster is located two levels up in the root folder
-cd ..\..\nextjs-poster
+cd meesho-dashboard
 start "Next.js Server (Do not close)" cmd /c "npm run dev -- -p 3333"
 
 :: Go back to api_inspector directory
