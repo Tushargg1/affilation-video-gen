@@ -16,6 +16,8 @@ New strategy (MUCH faster - no product-page opens needed):
 """
 import sys, time, psycopg2, re, subprocess as sp, datetime
 import xml.etree.ElementTree as ET
+import io
+from PIL import Image
 from pathlib import Path
 from meesho_emulator_collector import AdbClient
 
@@ -61,6 +63,36 @@ def tap_node(dev, node):
 
 def tap_xy(dev, x, y):
     dev.shell("input", "tap", str(x), str(y))
+
+def get_screencap(dev):
+    try:
+        cmd = [dev.adb, "-s", dev.serial, "exec-out", "screencap", "-p"]
+        r = sp.run(cmd, capture_output=True, timeout=10, creationflags=0x08000000)
+        if r.returncode == 0 and len(r.stdout) > 1000:
+            return r.stdout
+    except Exception as e:
+        log_print(f"screencap error: {e}")
+    return None
+
+def is_heart_red(png_bytes, bounds_str):
+    try:
+        if not png_bytes or not bounds_str: return False
+        m = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', bounds_str)
+        if not m: return False
+        x1, y1, x2, y2 = map(int, m.groups())
+        
+        img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
+        crop = img.crop((x1, y1, x2, y2))
+        
+        red_pixels = 0
+        for count, color in crop.getcolors(maxcolors=100000) or []:
+            r, g, b = color
+            if r > 180 and g < 100 and b < 100:
+                red_pixels += count
+                
+        return red_pixels > 50
+    except Exception:
+        return False
 
 def find_node(root, text_query=None, exact_text=None, resource_id=None, clickable=False):
     for elem in root.iter():
@@ -193,11 +225,26 @@ def dismiss_popups(dev):
             "not now",
             "maybe later",
             "no thanks",
+            "skip",
+            "close",
+            "x"
         ]
         for kw in popup_dismiss_keywords:
-            node = find_node(root, kw, clickable=True)
+            node = find_node(root, exact_text=kw, clickable=True)
+            if not node:
+                node = find_node(root, text_query=kw, clickable=True)
             if node:
                 log_print(f"Dismissing popup via button: '{kw}'")
+                tap_node(dev, node)
+                time.sleep(1.5)
+                return
+        
+        # Look for typical Ad close buttons by ID
+        ad_close_ids = ["com.meesho.supply:id/close", "com.meesho.supply:id/iv_close_button"]
+        for rid in ad_close_ids:
+            node = find_node(root, resource_id=rid, clickable=True)
+            if node:
+                log_print(f"Dismissing popup via ID: '{rid}'")
                 tap_node(dev, node)
                 time.sleep(1.5)
                 return
@@ -365,10 +412,29 @@ def wait_for_results_loaded(dev, timeout=25):
                 time.sleep(2)
                 continue
 
+            # Verify it is ACTUALLY the search feed, not the home feed!
+            # Search feeds usually have a back button '<' or 'navigate up' in the top bar
+            # Or the search bar EditText contains the keyword we searched for!
+            is_search_feed = False
+            for e in root.iter("node"):
+                rid = e.attrib.get("resource-id", "")
+                if rid in ("com.meesho.supply:id/back_button", "com.meesho.supply:id/navigate_up"):
+                    is_search_feed = True
+                    break
+                if e.attrib.get("class", "") == "android.widget.EditText":
+                    text = e.attrib.get("text", "").lower()
+                    if text and text != "search by keyword or product id":
+                        is_search_feed = True
+                        break
+
             cards = _find_cards_in_root(root)
             if not has_loading and len(cards) > 0:
-                log_print(f"Results loaded! Found {len(cards)} product cards.")
-                return True
+                if is_search_feed:
+                    log_print(f"Results loaded! Found {len(cards)} product cards.")
+                    return True
+                else:
+                    log_print(f"Cards found, but looks like HOME FEED, not search feed! Still waiting... ({i+1}s)")
+                    continue
 
             # Also check if catalog recycler is present
             has_recycler = any(
@@ -377,7 +443,7 @@ def wait_for_results_loaded(dev, timeout=25):
                     "com.meesho.supply:id/recycler_wrapper",
                     "com.meesho.supply:id/search_recycler_view",)
                 for e in root.iter("node"))
-            if has_recycler and not has_loading:
+            if has_recycler and not has_loading and is_search_feed:
                 log_print("Catalog recycler found, assuming results loaded.")
                 return True
 
@@ -385,7 +451,7 @@ def wait_for_results_loaded(dev, timeout=25):
         except Exception as e:
             log_print(f"Wait error: {e}")
     log_print("Timeout - proceeding anyway (results may be visible).")
-    return True  # Don't block forever
+    return False  # Don't block forever, return failure so we can retry search
 
 
 SEARCH_BAR_RIDS = [
@@ -424,6 +490,8 @@ def wait_for_home_loaded(dev, timeout=30):
     for i in range(timeout):
         time.sleep(1)
         try:
+            if i % 3 == 0:
+                dismiss_popups(dev)
             xml = dev.dump_ui()
             if not xml:
                 continue
@@ -497,7 +565,23 @@ def do_search(dev, keyword):
     dev.shell("input", "keyevent", "66")
     time.sleep(4)
 
-    wait_for_results_loaded(dev, timeout=60)
+    success = wait_for_results_loaded(dev, timeout=20)
+    if not success:
+        log_print("Failed to reach search feed! Retrying search...")
+        # Press back a few times in case we are stuck in autocomplete or an ad
+        dev.shell("input", "keyevent", "4")
+        time.sleep(1)
+        dev.shell("input", "keyevent", "4")
+        time.sleep(2)
+        # Try tapping search bar again
+        root2, bar2 = wait_for_home_loaded(dev, timeout=10)
+        if bar2 is not None:
+            tap_node(dev, bar2)
+            time.sleep(1.5)
+            dev.shell("input", "keyevent", "66")
+            time.sleep(4)
+            wait_for_results_loaded(dev, timeout=30)
+            
     log_print("On search results feed.")
     return True
 
@@ -531,12 +615,26 @@ def parse_card(card_elem):
         "commission_percent": -1.0,
         "bounds": card_elem.attrib.get("bounds", ""),
         "share_bounds": "",
+        "wishlist_bounds": "",
+        "is_wishlisted": False,
     }
     for elem in card_elem.iter():
         rid = elem.attrib.get("resource-id", "")
         t   = elem.attrib.get("text", "").strip()
         c   = elem.attrib.get("content-desc", "").strip()
         val = t or c
+
+        # Detect Wishlist Heart Icon
+        if "wishlist" in rid.lower() or "fav" in rid.lower() or "save" in rid.lower() or "heart" in rid.lower():
+            if elem.attrib.get("class", "") in ("android.widget.ImageView", "android.widget.ImageButton"):
+                data["wishlist_bounds"] = elem.attrib.get("bounds", "")
+                data["is_wishlisted"] = (elem.attrib.get("selected") == "true" or elem.attrib.get("checked") == "true")
+        # In case the ID doesn't have those keywords, but content-desc does:
+        elif ("wishlist" in c.lower() or "remove" in c.lower() or "added" in c.lower()):
+            if elem.attrib.get("class", "") in ("android.widget.ImageView", "android.widget.ImageButton"):
+                data["wishlist_bounds"] = elem.attrib.get("bounds", "")
+                if "remove" in c.lower() or elem.attrib.get("selected") == "true":
+                    data["is_wishlisted"] = True
 
         if "commission" in val.lower() or rid == "com.meesho.supply:id/affiliate_commission_text":
             m = re.search(r'(\d+(?:\.\d+)?)\s*%', val)
@@ -671,8 +769,26 @@ def get_link_via_card_share(dev, card_data):
     if not link:
         log_print("No Meesho link found in clipboard.")
 
-    # If we opened PDP, press BACK to return to search feed!
+    # If we opened PDP, click the Wishlist heart on PDP before returning
     if opened_pdp:
+        try:
+            xml_pdp2 = dev.dump_ui()
+            root_pdp2 = ET.fromstring(xml_pdp2)
+            wish_node = find_node(root_pdp2, resource_id="com.meesho.supply:id/wishlist")
+            if not wish_node:
+                wish_node = find_node(root_pdp2, exact_text="Wishlist", clickable=True)
+            
+            if wish_node is not None:
+                log_print("Tapping Wishlist on PDP...")
+                tap_node(dev, wish_node)
+                time.sleep(1.0)
+            else:
+                log_print("Tapping Wishlist on PDP (fallback coords)...")
+                tap_xy(dev, 840, 2000)
+                time.sleep(1.0)
+        except Exception as e:
+            log_print(f"Failed to tap wishlist on PDP: {e}")
+
         log_print("Returning to search results feed...")
         dev.shell("input", "keyevent", "4")
         time.sleep(1.5)
@@ -709,6 +825,7 @@ def run_automation(target_count=9999999):
     do_search(dev, keyword)
 
     collected, empty_count, scroll_count = 0, 0, 0
+    last_extract_time = time.time()
     processed_urls = set()
     visited_keys_on_screen = set()
     
@@ -735,6 +852,18 @@ def run_automation(target_count=9999999):
         log_print(f"Error loading existing URLs: {e}")
 
     while collected < target_count:
+        if time.time() - last_extract_time > 300:
+            log_print("No products extracted for 5 minutes (app may be stuck). Restarting Meesho...")
+            dev.shell("am", "force-stop", "com.meesho.supply")
+            time.sleep(2)
+            dev.shell("monkey", "-p", "com.meesho.supply", "-c", "android.intent.category.LAUNCHER", "1")
+            time.sleep(8)
+            do_search(dev, keyword)
+            empty_count = 0
+            scroll_count = 0
+            last_extract_time = time.time()
+            continue
+
         try:
             xml = dev.dump_ui()
         except Exception as e:
@@ -785,15 +914,9 @@ def run_automation(target_count=9999999):
             visited_keys_on_screen.clear()
             time.sleep(3.5)
 
-            if empty_count >= 6 or scroll_count > 30:
-                log_print("Stuck or too many scrolls! Re-searching for fresh feed...")
-                dev.shell("am", "force-stop", "com.meesho.supply")
-                time.sleep(2)
-                dev.shell("monkey", "-p", "com.meesho.supply", "-c", "android.intent.category.LAUNCHER", "1")
-                time.sleep(8)
-                do_search(dev, keyword)
-                empty_count = 0
-                scroll_count = 0
+            if empty_count >= 8:
+                log_print("End of search results reached (8 consecutive empty scrolls). Stopping automation gracefully.")
+                break
             continue
 
         empty_count = 0
@@ -801,10 +924,20 @@ def run_automation(target_count=9999999):
         # Process the topmost unvisited candidate card
         cand_elem, card, b, card_key = valid_candidates[0]
         visited_keys_on_screen.add(card_key)
+        
+        # Take a screenshot to visually detect if the heart is red
+        png = get_screencap(dev)
+        if is_heart_red(png, card.get("share_bounds")):
+            card["is_wishlisted"] = True
 
         comm = card["commission_percent"]
         comm_str = f"{comm}%" if comm >= 0 else "not shown"
         log_print(f"\nTargeting Search Card | Price: Rs{card['price']} | Commission: {comm_str} | Title: {card['title'][:40]}")
+
+        # Skip already wishlisted products
+        if card.get("is_wishlisted"):
+            log_print("Product already wishlisted (red heart visually detected) -> SKIPPING.")
+            continue
 
         # Skip 0% commission immediately without opening product
         if comm == 0.0:
@@ -848,13 +981,14 @@ def run_automation(target_count=9999999):
                 cur = conn.cursor()
                 cur.execute(
                     "INSERT INTO auto_products "
-                    "(commission_percent, product_url) "
-                    "VALUES (%s, %s) ON CONFLICT (product_url) DO NOTHING",
-                    (max(comm, 0.0), link)
+                    "(commission_percent, product_url, category, title, price) "
+                    "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (product_url) DO NOTHING",
+                    (max(comm, 0.0), link, keyword, title, card.get("price", 0.0))
                 )
                 conn.commit()
                 if cur.rowcount > 0:
                     collected += 1
+                    last_extract_time = time.time()
                     log_print(f"SAVED #{collected}: {title[:50]} | {comm}% | {link}")
                     if session_id:
                         cur.execute("UPDATE extraction_sessions SET total_extracted = %s WHERE id = %s", (collected, session_id))

@@ -28,6 +28,34 @@ export async function POST(request: Request) {
     }
     client = await pool.connect();
     const placeholders = ids.map((_: any, i: number) => `$${i + 1}`).join(', ');
+    
+    // 1. Fetch URLs to delete blobs
+    const selectResult = await client.query(
+      `SELECT downloaded_image_path, downloaded_video_path FROM auto_products WHERE id IN (${placeholders})`,
+      ids
+    );
+    
+    // 2. Delete Blobs
+    const urlsToDelete: string[] = [];
+    selectResult.rows.forEach((row: any) => {
+      if (row.downloaded_image_path && row.downloaded_image_path.includes('vercel-storage.com')) {
+        urlsToDelete.push(row.downloaded_image_path);
+      }
+      if (row.downloaded_video_path && row.downloaded_video_path.includes('vercel-storage.com')) {
+        urlsToDelete.push(row.downloaded_video_path);
+      }
+    });
+    
+    if (urlsToDelete.length > 0) {
+      try {
+        const { del } = await import('@vercel/blob');
+        await del(urlsToDelete);
+      } catch (e) {
+        console.error('Failed to delete blobs:', e);
+      }
+    }
+
+    // 3. Delete the product
     const result = await client.query(
       `DELETE FROM auto_products WHERE id IN (${placeholders})`,
       ids

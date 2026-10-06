@@ -273,7 +273,7 @@ def run_enrichment_loop():
 
     try:
         log("\nLaunching Chrome browser...")
-        driver = uc.Chrome(options=options)
+        driver = uc.Chrome(options=options, version_main=154)
         log("Chrome launched successfully!")
     except Exception as e:
         log(f"FATAL: Failed to launch Chrome: {e}")

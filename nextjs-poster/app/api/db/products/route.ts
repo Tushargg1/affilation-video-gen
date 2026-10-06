@@ -13,7 +13,7 @@ export async function GET() {
     .from('auto_products')
     .select('*')
     .order('id', { ascending: false })
-    .limit(100);
+    .limit(3000);
     
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ products: data });

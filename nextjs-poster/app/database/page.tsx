@@ -40,6 +40,7 @@ export default function Home() {
   const [selectedProducts, setSelectedProducts] = useState<Set<number>>(new Set());
   const [isPending, setIsPending] = useState(false);
   const [isLaunchingBS, setIsLaunchingBS] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(50);
   const pendingRef = useRef(false);
   
   // Timers
@@ -558,14 +559,22 @@ export default function Home() {
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-[800px]">
+            <div 
+              className="flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-[800px]"
+              onScroll={(e) => {
+                const bottom = e.currentTarget.scrollHeight - e.currentTarget.scrollTop <= e.currentTarget.clientHeight + 200;
+                if (bottom && visibleCount < displayedProducts.length) {
+                  setVisibleCount(v => v + 50);
+                }
+              }}
+            >
               {displayedProducts.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-400 py-12">
                   <p className="font-medium">No products found. Enter CF URL or run extraction.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {displayedProducts.map((p: any) => (
+                  {displayedProducts.slice(0, visibleCount).map((p: any) => (
                     <div key={p.id} className={`flex justify-between items-center p-4 rounded-xl border transition-all ${selectedProducts.has(p.id) ? 'bg-indigo-50 border-indigo-300' : 'border-slate-100 bg-slate-50 hover:bg-white hover:border-slate-300'}`}>
                       <input
                         type="checkbox"

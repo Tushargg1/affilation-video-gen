@@ -13,6 +13,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No IDs provided' }, { status: 400 });
     }
     
+    // Fetch URLs of blobs to delete
+    const { data: products } = await supabase
+      .from('auto_products')
+      .select('downloaded_image_path, downloaded_video_path')
+      .in('id', ids);
+
+    // Delete Blobs
+    if (products && products.length > 0) {
+      const urlsToDelete: string[] = [];
+      products.forEach(p => {
+        if (p.downloaded_image_path && p.downloaded_image_path.includes('vercel-storage.com')) {
+          urlsToDelete.push(p.downloaded_image_path);
+        }
+        if (p.downloaded_video_path && p.downloaded_video_path.includes('vercel-storage.com')) {
+          urlsToDelete.push(p.downloaded_video_path);
+        }
+      });
+      if (urlsToDelete.length > 0) {
+        try {
+          // Dynamic import of del just in case, but standard import at top is better
+          const { del } = await import('@vercel/blob');
+          await del(urlsToDelete);
+        } catch (e) {
+          console.error('Failed to delete blobs', e);
+        }
+      }
+    }
+
     const { error } = await supabase
       .from('auto_products')
       .delete()
