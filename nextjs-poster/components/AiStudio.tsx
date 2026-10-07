@@ -195,27 +195,6 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     setIsLoading(false);
   };
 
-  const handleUploadOutro = async () => {
-    if (!outroVideo) return;
-    setIsLoading(true);
-    setStatus({ type: 'info', message: 'Uploading outro video...' });
-    try {
-      const ext = outroVideo.name.split('.').pop() || 'mp4';
-      const fixedName = `global-outro-video.${ext}`;
-      
-      const newBlob = await upload(fixedName, outroVideo, {
-        access: 'public',
-        handleUploadUrl: '/api/upload'
-      });
-      setOutroVideoUrl(newBlob.url);
-      localStorage.setItem('global_outro_video', newBlob.url);
-      
-      setStatus({ type: 'success', message: 'Outro video uploaded successfully!' });
-    } catch (e: any) {
-      setStatus({ type: 'error', message: `Upload failed: ${e.message}` });
-    }
-    setIsLoading(false);
-  };
 
   const [isSending, setIsSending] = useState(false);
 
