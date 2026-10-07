@@ -156,6 +156,17 @@ export default function ProductsGallery() {
     { id: 'AFFILIATED', label: 'Affiliated' }
   ];
 
+  // Helper to parse review counts like "21k", "1.5k", or "500"
+  const parseReviews = (val: string | null) => {
+    if (!val) return 0;
+    const str = val.toString().toLowerCase().replace(/,/g, '');
+    let multiplier = 1;
+    if (str.includes('k')) multiplier = 1000;
+    else if (str.includes('m')) multiplier = 1000000;
+    const num = parseFloat(str.replace(/[^0-9.]/g, ''));
+    return isNaN(num) ? 0 : num * multiplier;
+  };
+
   let filteredProducts = products.filter(p => {
     if (filter === 'ALL') return true;
     if (filter === 'JUST_EXTRACTED') return !p.image_prompt && !p.video_prompt && !p.downloaded_image_path && !p.downloaded_video_path;
@@ -172,6 +183,7 @@ export default function ProductsGallery() {
     if (sortBy === 'priceAsc') return parseFloat(a.price) - parseFloat(b.price);
     if (sortBy === 'priceDesc') return parseFloat(b.price) - parseFloat(a.price);
     if (sortBy === 'ratingDesc') return parseFloat(b.review_star || 0) - parseFloat(a.review_star || 0);
+    if (sortBy === 'reviewsDesc') return parseReviews(b.total_bought) - parseReviews(a.total_bought);
     return b.id - a.id;
   });
 
@@ -219,6 +231,7 @@ export default function ProductsGallery() {
           <option value="priceAsc">Price: Low to High</option>
           <option value="priceDesc">Price: High to Low</option>
           <option value="ratingDesc">Highest Rated</option>
+          <option value="reviewsDesc">Highest Reviews</option>
         </select>
       </div>
 
