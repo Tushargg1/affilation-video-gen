@@ -200,6 +200,16 @@ export default function GlobalAutoPilot() {
       !p.downloaded_video_path
     );
     
+    const strat = localStorage.getItem('ai_studio_sort_strategy') || 'highest_reviews';
+
+    const parseReviews = (rev: string) => {
+      const str = (rev || '0').toString().toLowerCase();
+      const num = parseInt(str.replace(/[^0-9]/g, '')) || 0;
+      return str.includes('k') ? num * 1000 : num;
+    };
+    const parseRating = (rate: string) => parseFloat((rate || '0')) || 0;
+    const parsePrice = (price: any) => parseFloat((price || '0').toString().replace(/[^0-9.]/g, '')) || 0;
+
     // Sort to prioritize products that are halfway done, just like "Process Next Media" button
     pendingProducts.sort((a: any, b: any) => {
        // Priority 1: Has image but needs video
@@ -212,7 +222,12 @@ export default function GlobalAutoPilot() {
        const bNeedsImage = b.image_prompt && !b.downloaded_image_path ? 1 : 0;
        if (aNeedsImage !== bNeedsImage) return bNeedsImage - aNeedsImage;
 
-       return 0;
+       // Priority 3: User's UI sort preference
+       if (strat === 'highest_reviews') return parseReviews(b.total_bought) - parseReviews(a.total_bought);
+       if (strat === 'highest_rating') return parseRating(b.review_star) - parseRating(a.review_star);
+       if (strat === 'lowest_price') return parsePrice(a.price) - parsePrice(b.price);
+       if (strat === 'highest_price') return parsePrice(b.price) - parsePrice(a.price);
+       return b.id - a.id;
     });
     
     pendingProducts = pendingProducts.slice(0, remainingQuota);
