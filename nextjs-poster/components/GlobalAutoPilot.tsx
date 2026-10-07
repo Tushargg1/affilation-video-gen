@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { upload } from '@vercel/blob/client';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 // Shared helper to write logs to localStorage so the UI can display them
 const writeLog = (msg: string) => {
@@ -502,6 +505,7 @@ export default function GlobalAutoPilot() {
         // Poll for generated video
         writeLog('Waiting for Video to be generated... (Takes a few minutes)');
         let finalVideoUrl: string | null = null;
+        let finalVideoBase64: string | null = null;
         let waitLoops = 0;
         while (true) {
           if (shouldStop()) { writeLog('🛑 Automation stopped by user.'); break; }
@@ -537,6 +541,7 @@ export default function GlobalAutoPilot() {
                       const vidData = await vidRes.json();
                       if (vidData.success && (vidData.base64 || vidData.filepath)) {
                         finalVideoUrl = vidData.filepath || vidData.base64; // Store filepath if available, else base64
+                        finalVideoBase64 = vidData.base64;
                         writeLog(`  ✅ Found video: ${vidData.filename}`);
                         break;
                       } else {
@@ -560,27 +565,71 @@ export default function GlobalAutoPilot() {
 
         // ─── STEP 6: Save Video URL to DB ────────────────────────────────
         if (finalVideoUrl) {
-          writeLog('Uploading generated video to Vercel Cloud Storage...');
+          writeLog('Processing & Uploading generated video...');
           try {
             let uploadUrl = null;
-            // If finalVideoUrl is an absolute path (C:\...), upload locally via server.js
-            if (finalVideoUrl.includes('\\') || finalVideoUrl.includes('/')) {
-              writeLog('Uploading directly from local server (bypasses 4MB limit)...');
-              const localRes = await fetch('http://localhost:3001/api/upload-local', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filepath: finalVideoUrl })
+            const globalOutroUrl = localStorage.getItem('global_outro_video');
+
+            if (globalOutroUrl && finalVideoBase64) {
+              writeLog('FFMPEG: Detected Global Outro. Merging videos in browser using WASM...');
+              const ffmpeg = new FFmpeg();
+              
+              if (!ffmpeg.loaded) {
+                const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+                await ffmpeg.load({
+                  coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                  wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                });
+              }
+
+              writeLog('FFMPEG: Writing files to memory...');
+              await ffmpeg.writeFile('video.mp4', await fetchFile(finalVideoBase64));
+              await ffmpeg.writeFile('outro.mp4', await fetchFile(globalOutroUrl));
+
+              writeLog('FFMPEG: Concatenating videos (Scaling to 1080x1920)...');
+              const filterComplex = `[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v0];[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v1];[v0][v1]concat=n=2:v=1:a=0[outv]`;
+              
+              await ffmpeg.exec([
+                '-i', 'video.mp4',
+                '-i', 'outro.mp4',
+                '-filter_complex', filterComplex,
+                '-map', '[outv]',
+                '-c:v', 'libx264',
+                '-preset', 'ultrafast',
+                'merged.mp4'
+              ]);
+
+              writeLog('FFMPEG: Merge complete! Uploading merged video directly to Vercel...');
+              const data = await ffmpeg.readFile('merged.mp4');
+              const blob = new Blob([data], { type: 'video/mp4' });
+              const mergedName = `merged-video-${prod.id}-${Date.now()}.mp4`;
+              
+              const newBlob = await upload(mergedName, blob, {
+                access: 'public',
+                handleUploadUrl: '/api/upload'
               });
-              const localData = await localRes.json();
-              if (localData.url) uploadUrl = localData.url;
+              uploadUrl = newBlob.url;
+              writeLog(`✅ Merged video uploaded to: ${uploadUrl}`);
             } else {
-              const uploadRes = await fetch('/api/upload', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ base64: finalVideoUrl, isVideo: true })
-              });
-              const uploadData = await uploadRes.json();
-              if (uploadData.url) uploadUrl = uploadData.url;
+              // Standard upload logic if no outro
+              if (finalVideoUrl.includes('\\') || finalVideoUrl.includes('/')) {
+                writeLog('Uploading directly from local server (bypasses 4MB limit)...');
+                const localRes = await fetch('http://localhost:3001/api/upload-local', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ filepath: finalVideoUrl })
+                });
+                const localData = await localRes.json();
+                if (localData.url) uploadUrl = localData.url;
+              } else {
+                const uploadRes = await fetch('/api/upload', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ base64: finalVideoUrl, isVideo: true })
+                });
+                const uploadData = await uploadRes.json();
+                if (uploadData.url) uploadUrl = uploadData.url;
+              }
             }
 
             if (uploadUrl) {

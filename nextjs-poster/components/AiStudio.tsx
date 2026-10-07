@@ -45,6 +45,14 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   const [modelPhoto, setModelPhoto] = useState<File | null>(null);
   const [modelPhotoUrl, setModelPhotoUrl] = useState<string>('');
   
+  const [outroVideo, setOutroVideo] = useState<File | null>(null);
+  const [outroVideoUrl, setOutroVideoUrl] = useState<string>('');
+  
+  useEffect(() => {
+    const savedOutro = localStorage.getItem('global_outro_video');
+    if (savedOutro) setOutroVideoUrl(savedOutro);
+  }, []);
+  
   const [imagePrompt, setImagePrompt] = useState<string>('');
   const [videoPrompt, setVideoPrompt] = useState<string>('');
   const [usedModel, setUsedModel] = useState<string>('');
@@ -159,6 +167,50 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
         });
       }
       setStatus({ type: 'success', message: 'Model photo uploaded successfully!' });
+    } catch (e: any) {
+      setStatus({ type: 'error', message: `Upload failed: ${e.message}` });
+    }
+    setIsLoading(false);
+  };
+
+  const handleUploadOutro = async () => {
+    if (!outroVideo) return;
+    setIsLoading(true);
+    setStatus({ type: 'info', message: 'Uploading outro video...' });
+    try {
+      const ext = outroVideo.name.split('.').pop() || 'mp4';
+      const fixedName = `global-outro-video.${ext}`;
+      
+      const newBlob = await upload(fixedName, outroVideo, {
+        access: 'public',
+        handleUploadUrl: '/api/upload'
+      });
+      setOutroVideoUrl(newBlob.url);
+      localStorage.setItem('global_outro_video', newBlob.url);
+      
+      setStatus({ type: 'success', message: 'Outro video uploaded successfully!' });
+    } catch (e: any) {
+      setStatus({ type: 'error', message: `Upload failed: ${e.message}` });
+    }
+    setIsLoading(false);
+  };
+
+  const handleUploadOutro = async () => {
+    if (!outroVideo) return;
+    setIsLoading(true);
+    setStatus({ type: 'info', message: 'Uploading outro video...' });
+    try {
+      const ext = outroVideo.name.split('.').pop() || 'mp4';
+      const fixedName = `global-outro-video.${ext}`;
+      
+      const newBlob = await upload(fixedName, outroVideo, {
+        access: 'public',
+        handleUploadUrl: '/api/upload'
+      });
+      setOutroVideoUrl(newBlob.url);
+      localStorage.setItem('global_outro_video', newBlob.url);
+      
+      setStatus({ type: 'success', message: 'Outro video uploaded successfully!' });
     } catch (e: any) {
       setStatus({ type: 'error', message: `Upload failed: ${e.message}` });
     }
@@ -773,6 +825,54 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
               <div className="mt-6 relative inline-block group">
                 <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
                 <img src={modelPhotoUrl} alt="Model" className="relative w-32 h-32 object-cover rounded-xl border border-white shadow-sm" />
+              </div>
+            )}
+          </div>
+
+          <div className="pt-6 border-t border-slate-200">
+            <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Upload Outro Video (Appended to all generated videos)</label>
+            <div className="flex gap-3">
+              <input 
+                type="file" 
+                accept="video/*"
+                onChange={e => setOutroVideo(e.target.files?.[0] || null)}
+                className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white/50 backdrop-blur-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100 transition-all cursor-pointer text-slate-600"
+              />
+              <button 
+                onClick={handleUploadOutro}
+                disabled={!outroVideo || isLoading}
+                className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 hover:shadow-lg transition-all active:scale-95 whitespace-nowrap"
+              >
+                Upload
+              </button>
+            </div>
+            {outroVideoUrl && (
+              <div className="mt-4 p-3 bg-pink-50 border border-pink-100 rounded-xl text-pink-900 text-sm font-medium">
+                ✅ Outro Video Uploaded! It will be automatically merged via FFmpeg at the end of all future videos.
+              </div>
+            )}
+          </div>
+
+          <div className="pt-6 border-t border-slate-200">
+            <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Upload Outro Video (Appended to all generated videos)</label>
+            <div className="flex gap-3">
+              <input 
+                type="file" 
+                accept="video/*"
+                onChange={e => setOutroVideo(e.target.files?.[0] || null)}
+                className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white/50 backdrop-blur-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100 transition-all cursor-pointer text-slate-600"
+              />
+              <button 
+                onClick={handleUploadOutro}
+                disabled={!outroVideo || isLoading}
+                className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 hover:shadow-lg transition-all active:scale-95 whitespace-nowrap"
+              >
+                Upload
+              </button>
+            </div>
+            {outroVideoUrl && (
+              <div className="mt-4 p-3 bg-pink-50 border border-pink-100 rounded-xl text-pink-900 text-sm font-medium">
+                ✅ Outro Video Uploaded! It will be automatically merged via FFmpeg at the end of all future videos.
               </div>
             )}
           </div>
