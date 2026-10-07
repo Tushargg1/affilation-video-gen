@@ -143,16 +143,29 @@ async function handler(request: Request) {
                 try {
                   console.log('Setting YouTube thumbnail...');
                   const imgResponse = await fetch(imageUrl);
+                  const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
                   const imgBuffer = Buffer.from(await imgResponse.arrayBuffer());
+                  
+                  if (imgBuffer.length > 2000000) {
+                     console.warn('YouTube thumbnail is larger than 2MB limit! Might fail.');
+                     platformErrors.push(`YouTube Thumb Warning: Image is ${Math.round(imgBuffer.length/1000)}KB (>2MB limit)`);
+                  }
+
                   const imgStream = new Readable();
                   imgStream.push(imgBuffer);
                   imgStream.push(null);
+                  
                   await youtube.thumbnails.set({
                     videoId: ytRes.data.id,
-                    media: { body: imgStream }
+                    media: { 
+                      mimeType: contentType,
+                      body: imgStream 
+                    }
                   });
+                  console.log('YouTube thumbnail set successfully!');
                 } catch (thumbErr: any) {
                   console.error('YouTube thumbnail failed:', thumbErr);
+                  platformErrors.push(`YouTube Thumbnail: ${thumbErr.message}`);
                 }
               }
             }
