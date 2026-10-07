@@ -37,10 +37,11 @@ async function handler(request: Request) {
 
     let title = "Amazing Product";
     let url = "";
+    let category = "women's clothing";
 
     try {
       if (pId) {
-        const { data } = await supabase.from('auto_products').select('title, product_url, is_posted').eq('id', pId).single();
+        const { data } = await supabase.from('auto_products').select('title, product_url, is_posted, category').eq('id', pId).single();
         if (data) {
           if (data.is_posted) {
             console.log(`Product ${pId} already posted, skipping duplicate QStash retry.`);
@@ -60,26 +61,27 @@ async function handler(request: Request) {
           }
           title = data.title;
           url = data.product_url;
+          category = data.category && !data.category.startsWith('{') ? data.category : 'women\'s clothing';
         }
       }
     } catch(e) {
       console.error("Failed to fetch product data from Supabase:", e);
     }
 
-    const replaceVars = (str: string) => (str || '').replace(/{title}/g, title).replace(/{url}/g, url);
+    const replaceVars = (str: string) => (str || '').replace(/{title}/g, title).replace(/{url}/g, url).replace(/{category}/g, category);
 
     // Video captions
-    const ytTitleRaw = replaceVars(config.youtube_title_template || "{title} #shorts");
+    const ytTitleRaw = replaceVars(config.youtube_title_template || "Trending {category} #shorts");
     // YouTube titles max 100 chars
     const ytTitle = ytTitleRaw.length > 100 ? ytTitleRaw.substring(0, 97) + '...' : ytTitleRaw;
     
-    const ytCaption = replaceVars(config.youtube_caption || "Check this out! {url} #shorts");
-    const fbCaption = replaceVars(config.facebook_caption || "Hot new product! {url}");
-    const igCaption = replaceVars(config.instagram_caption || "Link in bio to shop this {title}!");
+    const ytCaption = replaceVars(config.youtube_caption || "Trending {category} ✨\n\nGet it here: {url}\n\n#trending #shorts");
+    const fbCaption = replaceVars(config.facebook_caption || "🔥 Hot New Product Alert! 🔥\n\nThis beautiful {category} is now available.\n\nComment \"DRESS\" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nGrab yours today: {url}");
+    const igCaption = replaceVars(config.instagram_caption || "Obsessed with this {category}! 😍\n\nComment \"DRESS\" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nLink in bio to shop!\n\n#fashion #trending #musthave");
 
     // Image captions (separate from video captions)
-    const fbImageCaption = replaceVars(config.facebook_image_caption || "✨ Check out this gorgeous product! {title}\n\nGet it here: {url}");
-    const igImageCaption = replaceVars(config.instagram_image_caption || "😍 Loving this {title}!\n\nLink in bio to shop! #fashion #trending #ootd");
+    const fbImageCaption = replaceVars(config.facebook_image_caption || "✨ Check out this gorgeous {category}!\n\nComment \"DRESS\" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nGet it here: {url}");
+    const igImageCaption = replaceVars(config.instagram_image_caption || "😍 Loving this {category}!\n\nComment \"DRESS\" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nLink in bio to shop! #fashion #trending #ootd");
 
     const postLinks: any = {};
     let platformErrors: string[] = [];
@@ -104,6 +106,23 @@ async function handler(request: Request) {
             
             if (ytRes.data.id) {
               postLinks.youtube = `https://youtu.be/${ytRes.data.id}`;
+              
+              if (imageUrl) {
+                try {
+                  console.log('Setting YouTube thumbnail...');
+                  const imgResponse = await fetch(imageUrl);
+                  const imgBuffer = Buffer.from(await imgResponse.arrayBuffer());
+                  const imgStream = new Readable();
+                  imgStream.push(imgBuffer);
+                  imgStream.push(null);
+                  await youtube.thumbnails.set({
+                    videoId: ytRes.data.id,
+                    media: { body: imgStream }
+                  });
+                } catch (thumbErr: any) {
+                  console.error('YouTube thumbnail failed:', thumbErr);
+                }
+              }
             }
         } catch (err: any) {
             console.error('YouTube upload failed:', err);
@@ -120,6 +139,17 @@ async function handler(request: Request) {
             formData.append('description', fbCaption);
             formData.append('access_token', process.env.META_ACCESS_TOKEN);
             formData.append('source', new Blob([videoBuffer], { type: 'video/mp4' }), blobName);
+            
+            if (imageUrl) {
+                try {
+                    const imgRes = await fetch(imageUrl);
+                    const imgBlob = await imgRes.blob();
+                    formData.append('thumb', imgBlob, 'thumbnail.jpg');
+                } catch(e) {
+                    console.error('Failed to attach Facebook thumbnail:', e);
+                }
+            }
+            
             const fbRes = await fetch(fbUrl, { method: 'POST', body: formData });
             const fbData = await fbRes.json();
             
@@ -163,7 +193,10 @@ async function handler(request: Request) {
     if (platforms.includes('instagram') && process.env.INSTAGRAM_ACCOUNT_ID && process.env.META_ACCESS_TOKEN) {
        try {
            console.log('Creating Instagram Video Container...');
-           const igUrl = `https://graph.facebook.com/v20.0/${process.env.INSTAGRAM_ACCOUNT_ID}/media?media_type=REELS&video_url=${encodeURIComponent(videoUrl)}&caption=${encodeURIComponent(igCaption)}&access_token=${process.env.META_ACCESS_TOKEN}`;
+           let igUrl = `https://graph.facebook.com/v20.0/${process.env.INSTAGRAM_ACCOUNT_ID}/media?media_type=REELS&video_url=${encodeURIComponent(videoUrl)}&caption=${encodeURIComponent(igCaption)}&access_token=${process.env.META_ACCESS_TOKEN}`;
+           if (imageUrl) {
+               igUrl += `&cover_url=${encodeURIComponent(imageUrl)}`;
+           }
            const igRes = await fetch(igUrl, { method: 'POST' });
            const igData = await igRes.json();
            

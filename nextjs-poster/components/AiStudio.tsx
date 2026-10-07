@@ -101,7 +101,11 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   const categoryProducts = products.filter(p => (p.category || 'Uncategorized') === selectedCategory);
   const selectedProduct = products.find(p => p.id === selectedProductId);
 
-  const parseReviews = (rev: string) => parseInt((rev || '0').toString().replace(/[^0-9]/g, '')) || 0;
+  const parseReviews = (rev: string) => {
+    const str = (rev || '0').toString().toLowerCase();
+    const num = parseInt(str.replace(/[^0-9]/g, '')) || 0;
+    return str.includes('k') ? num * 1000 : num;
+  };
   const parseRating = (rate: string) => parseFloat((rate || '0')) || 0;
   const parsePrice = (price: any) => parseFloat((price || '0').toString().replace(/[^0-9.]/g, '')) || 0;
 
@@ -110,8 +114,8 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     const pending = products.filter(p => (p.category || 'Uncategorized') === cat && (!p.image_prompt || !p.video_prompt));
     
     return pending.sort((a, b) => {
-      if (strat === 'highest_reviews') return parseReviews(b.reviews) - parseReviews(a.reviews);
-      if (strat === 'highest_rating') return parseRating(b.rating) - parseRating(a.rating);
+      if (strat === 'highest_reviews') return parseReviews(b.total_bought) - parseReviews(a.total_bought);
+      if (strat === 'highest_rating') return parseRating(b.review_star) - parseRating(a.review_star);
       if (strat === 'lowest_price') return parsePrice(a.price) - parsePrice(b.price);
       if (strat === 'highest_price') return parsePrice(b.price) - parsePrice(a.price);
       return b.id - a.id; 
@@ -738,7 +742,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
               <div className="mt-4 text-sm p-3.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-900 shadow-sm flex flex-col transition-all">
                 <span className="font-extrabold text-[10px] tracking-widest text-indigo-400 uppercase mb-1">Queue Top</span>
                 <span className="font-semibold truncate">{selectedProduct.title}</span>
-                <span className="opacity-70 mt-1 font-medium text-xs">₹{selectedProduct.price} • ⭐ {selectedProduct.rating || 'N/A'} • {selectedProduct.reviews || '0 reviews'}</span>
+                <span className="opacity-70 mt-1 font-medium text-xs">₹{selectedProduct.price} • ⭐ {selectedProduct.review_star || 'N/A'} • {selectedProduct.total_bought || '0 reviews'}</span>
               </div>
             ) : selectedCategory ? (
                <div className="mt-4 text-sm p-3.5 bg-slate-100/80 border border-slate-200 rounded-xl text-slate-500 font-medium flex items-center gap-2">

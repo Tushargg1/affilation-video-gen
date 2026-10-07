@@ -6,6 +6,7 @@ export default function ProductsGallery() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('newest');
   const [expandedPrompts, setExpandedPrompts] = useState<Record<string, boolean>>({});
 
   const togglePrompt = (id: string, type: string) => {
@@ -166,9 +167,15 @@ export default function ProductsGallery() {
     if (filter === 'POSTED') return !!p.is_posted;
     if (filter === 'AFFILIATED') return !!p.is_affiliated;
     return true;
+  }).sort((a, b) => {
+    if (sortBy === 'oldest') return a.id - b.id;
+    if (sortBy === 'priceAsc') return parseFloat(a.price) - parseFloat(b.price);
+    if (sortBy === 'priceDesc') return parseFloat(b.price) - parseFloat(a.price);
+    if (sortBy === 'ratingDesc') return parseFloat(b.review_star || 0) - parseFloat(a.review_star || 0);
+    return b.id - a.id;
   });
 
-  if (filter === 'TO_BE_POSTED') {
+  if (filter === 'TO_BE_POSTED' && sortBy === 'newest') {
     filteredProducts = [...filteredProducts].sort((a, b) => a.id - b.id);
   }
 
@@ -185,20 +192,34 @@ export default function ProductsGallery() {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-8 sticky top-0 z-20 bg-slate-50/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/60 shadow-sm">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setFilter(tab.id)}
-            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 shadow-sm
-              ${filter === tab.id 
-                ? 'bg-slate-900 text-white shadow-md scale-105' 
-                : 'bg-white text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200'
-              }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex flex-col md:flex-row gap-4 mb-8 sticky top-0 z-20 bg-slate-50/80 backdrop-blur-md p-3 rounded-2xl border border-slate-200/60 shadow-sm justify-between md:items-center">
+        <div className="flex flex-wrap gap-2">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setFilter(tab.id)}
+              className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 shadow-sm
+                ${filter === tab.id 
+                  ? 'bg-slate-900 text-white shadow-md scale-105' 
+                  : 'bg-white text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200'
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        
+        <select 
+          value={sortBy} 
+          onChange={(e) => setSortBy(e.target.value)}
+          className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer w-full md:w-auto"
+        >
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="priceAsc">Price: Low to High</option>
+          <option value="priceDesc">Price: High to Low</option>
+          <option value="ratingDesc">Highest Rated</option>
+        </select>
       </div>
 
       {loading ? (
@@ -228,9 +249,21 @@ export default function ProductsGallery() {
                     <h3 className="font-bold text-slate-800 line-clamp-2 text-lg leading-tight" title={product.title}>
                       {product.title}
                     </h3>
-                    <div className="text-md font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-600 mt-2">
-                      ₹{product.price}
+                    <div className="flex items-center justify-center gap-2 mt-2">
+                      <div className="text-md font-bold text-emerald-600">
+                        ₹{product.price}
+                      </div>
+                      {product.review_star && (
+                        <div className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 shadow-sm">
+                          ⭐ {product.review_star}
+                        </div>
+                      )}
                     </div>
+                    {product.total_bought && (
+                      <div className="text-xs font-semibold text-slate-400 mt-1.5">
+                        {product.total_bought}
+                      </div>
+                    )}
                     
                     {product.used_model && (
                       <div className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 text-xs font-bold tracking-wide border border-indigo-100/50 shadow-sm">
