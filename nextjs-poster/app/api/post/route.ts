@@ -5,6 +5,7 @@ import { google } from 'googleapis';
 import { Readable } from 'stream';
 import { Redis } from '@upstash/redis';
 import { Client } from '@upstash/qstash';
+import sharp from 'sharp';
 
 export const maxDuration = 60;
 
@@ -24,6 +25,21 @@ async function handler(request: Request) {
     if (!videoResponse.ok) throw new Error('Failed to download video from Vercel Blob');
     const videoArrayBuffer = await videoResponse.arrayBuffer();
     const videoBuffer = Buffer.from(videoArrayBuffer);
+    
+    // Process image thumbnail if provided
+    let processedImageBuffer: Buffer | null = null;
+    if (imageUrl) {
+      try {
+        const imgRes = await fetch(imageUrl);
+        const imgArrayBuf = await imgRes.arrayBuffer();
+        processedImageBuffer = await sharp(Buffer.from(imgArrayBuf))
+          .resize(1080, 1920, { fit: 'cover', position: 'center' })
+          .jpeg({ quality: 80 })
+          .toBuffer();
+      } catch (err) {
+        console.error('Failed to process thumbnail with sharp:', err);
+      }
+    }
     
     // Fetch config and product data for platform-specific captions
     const { createClient } = require('@supabase/supabase-js');
@@ -139,26 +155,17 @@ async function handler(request: Request) {
             if (ytRes.data.id) {
               postLinks.youtube = `https://youtu.be/${ytRes.data.id}`;
               
-              if (imageUrl) {
+              if (processedImageBuffer) {
                 try {
                   console.log('Setting YouTube thumbnail...');
-                  const imgResponse = await fetch(imageUrl);
-                  const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
-                  const imgBuffer = Buffer.from(await imgResponse.arrayBuffer());
-                  
-                  if (imgBuffer.length > 2000000) {
-                     console.warn('YouTube thumbnail is larger than 2MB limit! Might fail.');
-                     platformErrors.push(`YouTube Thumb Warning: Image is ${Math.round(imgBuffer.length/1000)}KB (>2MB limit)`);
-                  }
-
                   const imgStream = new Readable();
-                  imgStream.push(imgBuffer);
+                  imgStream.push(processedImageBuffer);
                   imgStream.push(null);
                   
                   await youtube.thumbnails.set({
                     videoId: ytRes.data.id,
                     media: { 
-                      mimeType: contentType,
+                      mimeType: 'image/jpeg',
                       body: imgStream 
                     }
                   });
@@ -185,10 +192,9 @@ async function handler(request: Request) {
             formData.append('access_token', process.env.META_ACCESS_TOKEN);
             formData.append('source', new Blob([videoBuffer], { type: 'video/mp4' }), blobName);
             
-            if (imageUrl) {
+            if (processedImageBuffer) {
                 try {
-                    const imgRes = await fetch(imageUrl);
-                    const imgBlob = await imgRes.blob();
+                    const imgBlob = new Blob([processedImageBuffer], { type: 'image/jpeg' });
                     formData.append('thumb', imgBlob, 'thumbnail.jpg');
                 } catch(e) {
                     console.error('Failed to attach Facebook thumbnail:', e);
@@ -240,7 +246,11 @@ async function handler(request: Request) {
            console.log('Creating Instagram Video Container...');
            let igUrl = `https://graph.facebook.com/v20.0/${process.env.INSTAGRAM_ACCOUNT_ID}/media?media_type=REELS&video_url=${encodeURIComponent(videoUrl)}&caption=${encodeURIComponent(igCaption)}&access_token=${process.env.META_ACCESS_TOKEN}`;
            if (imageUrl) {
-               igUrl += `&cover_url=${encodeURIComponent(imageUrl)}`;
+               // Provide proxy URL that strictly forces 9:16 aspect ratio
+               const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+               const host = request.headers.get('host') || process.env.VERCEL_PROJECT_PRODUCTION_URL;
+               const strictThumbnailUrl = `${protocol}://${host}/api/thumbnail?url=${encodeURIComponent(imageUrl)}`;
+               igUrl += `&cover_url=${encodeURIComponent(strictThumbnailUrl)}`;
            }
            const igRes = await fetch(igUrl, { method: 'POST' });
            const igData = await igRes.json();
