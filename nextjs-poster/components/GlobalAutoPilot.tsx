@@ -15,7 +15,7 @@ const writeLog = (msg: string) => {
 const shouldStop = () => localStorage.getItem('digen_stop_requested') === 'true';
 
 const callGeminiWithInfiniteFallback = async (prompt: string, imageUrl: string, modelImageUrl: string | null, logPrefix: string) => {
-  const models = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'];
+  const models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro'];
   let attempt = 0;
   
   while (true) {
