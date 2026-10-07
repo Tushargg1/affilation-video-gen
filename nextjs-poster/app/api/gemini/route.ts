@@ -10,15 +10,12 @@ export async function POST(req: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    
+
     const parts: any[] = [{ text: prompt }];
 
     // 1. Fetch and attach Product Image
     if (imageUrl) {
-      const response = await fetch(imageUrl, { 
-        signal: AbortSignal.timeout(8000),
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
-      });
+      const response = await fetch(imageUrl);
       if (response.ok) {
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
@@ -33,10 +30,7 @@ export async function POST(req: Request) {
 
     // 2. Fetch and attach Model Photo (if provided)
     if (modelImageUrl) {
-      const response = await fetch(modelImageUrl, { 
-        signal: AbortSignal.timeout(8000),
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
-      });
+      const response = await fetch(modelImageUrl);
       if (response.ok) {
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
@@ -51,7 +45,7 @@ export async function POST(req: Request) {
 
     try {
       const generativeModel = genAI.getGenerativeModel(
-        { model: model }, 
+        { model: model },
         { apiVersion: 'v1' }
       );
       const result = await generativeModel.generateContent(parts);
