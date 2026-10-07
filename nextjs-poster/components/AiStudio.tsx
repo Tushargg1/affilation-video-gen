@@ -195,6 +195,73 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     setIsLoading(false);
   };
 
+  const handleManualOutroMerge = async () => {
+    if (!selectedProduct || (!selectedProduct.social_link_2 && !selectedProduct.downloaded_video_path)) {
+      alert("This product does not have a generated video yet.");
+      return;
+    }
+    
+    if (!outroVideoUrl) {
+      alert("Please upload an outro video first.");
+      return;
+    }
+
+    setIsLoading(true);
+    setStatus({ type: 'info', message: 'Merging video in browser (may take a minute)...' });
+
+    try {
+      const sourceVideoUrl = selectedProduct.social_link_2 || selectedProduct.downloaded_video_path;
+      
+      const ffmpeg = new FFmpeg();
+      if (!ffmpeg.loaded) {
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+      }
+      
+      await ffmpeg.writeFile('video.mp4', await fetchFile(sourceVideoUrl));
+      await ffmpeg.writeFile('outro.mp4', await fetchFile(outroVideoUrl));
+
+      const filterComplex = `[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v0];[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v1];[v0][v1]concat=n=2:v=1:a=0[outv]`;
+      
+      await ffmpeg.exec([
+        '-i', 'video.mp4',
+        '-i', 'outro.mp4',
+        '-filter_complex', filterComplex,
+        '-map', '[outv]',
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        'merged.mp4'
+      ]);
+
+      const data = await ffmpeg.readFile('merged.mp4');
+      const blob = new Blob([data], { type: 'video/mp4' });
+      const mergedName = `merged-video-${selectedProduct.id}-${Date.now()}.mp4`;
+      
+      setStatus({ type: 'info', message: 'Uploading merged video...' });
+      
+      const newBlob = await upload(mergedName, blob, {
+        access: 'public',
+        handleUploadUrl: '/api/upload'
+      });
+      
+      await fetch('/api/db/products/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedProduct.id, social_link_2: newBlob.url, downloaded_video_path: newBlob.url })
+      });
+      
+      setStatus({ type: 'success', message: 'Video successfully merged and updated!' });
+      
+    } catch (err: any) {
+      console.error(err);
+      setStatus({ type: 'error', message: `Merge failed: ${err.message}` });
+    }
+    
+    setIsLoading(false);
+  };
 
   const [isSending, setIsSending] = useState(false);
 
@@ -826,8 +893,18 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
               </button>
             </div>
             {outroVideoUrl && (
-              <div className="mt-4 p-3 bg-pink-50 border border-pink-100 rounded-xl text-pink-900 text-sm font-medium">
-                ✅ Outro Video Uploaded! It will be automatically merged via FFmpeg at the end of all future videos.
+              <div className="mt-4 p-3 bg-pink-50 border border-pink-100 rounded-xl text-pink-900 text-sm font-medium flex flex-col gap-3">
+                <span>✅ Outro Video Uploaded! It will be automatically merged via FFmpeg at the end of all future videos.</span>
+                
+                {selectedProduct && (selectedProduct.social_link_2 || selectedProduct.downloaded_video_path) && (
+                  <button
+                    onClick={handleManualOutroMerge}
+                    disabled={isLoading}
+                    className="w-full bg-pink-600 text-white hover:bg-pink-700 px-4 py-2 rounded-lg font-bold transition-all disabled:opacity-50 text-xs shadow-sm flex justify-center items-center gap-2"
+                  >
+                    {isLoading ? 'Processing...' : 'Merge Outro to Selected Product Video'}
+                  </button>
+                )}
               </div>
             )}
           </div>
