@@ -10,12 +10,12 @@ const defaultConfig = {
   schedule_times: ['02:00', '06:00', '09:00', '19:00'],
   base_image_prompt: 'You are an expert AI prompt engineer. Analyze the attached product image and write a highly detailed, professional text-to-image prompt to generate a stunning, cinematic, and photorealistic showcase of this product.\\nPlace the product in an aesthetic, premium environment that matches its vibe (e.g., a sleek studio, a cozy lifestyle setting, etc.).\\nInclude keywords like: 8k resolution, cinematic lighting, ultra-detailed, photorealistic, professional photography.\\nReturn ONLY the final prompt text, with no introductory text or markdown formatting.',
   base_video_prompt: "You are an expert AI prompt engineer. Analyze the attached product image and write a highly detailed text-to-video prompt to create a stunning, high-converting product showcase video.\\nThe video must be exactly 10 seconds long.\\nFocus on smooth, premium camera movements (e.g., slow cinematic pan, dynamic orbital shot, or elegant zoom).\\nDescribe the lighting as professional and cinematic. Highlight the product's textures and aesthetic appeal.\\nInclude keywords like: exactly 10 seconds, smooth 60fps motion, cinematic product showcase, highly detailed.\\nReturn ONLY the final prompt text, with no introductory text or markdown formatting.",
-  youtube_title_template: 'Trending {category} #shorts',
-  youtube_caption: 'Trending {category} ✨\n\nGet it here: {url}\n\n#trending #shorts',
-  facebook_caption: '🔥 Hot New Product Alert! 🔥\n\nThis beautiful {category} is now available.\n\nComment "DRESS" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nGrab yours today: {url}',
-  instagram_caption: 'Obsessed with this {category}! 😍\n\nComment "DRESS" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nLink in bio to shop!\n\n#fashion #trending #musthave',
-  facebook_image_caption: '✨ Check out this gorgeous {category}!\n\nComment "DRESS" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nGet it here: {url}',
-  instagram_image_caption: '😍 Loving this {category}!\n\nComment "DRESS" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nLink in bio to shop! #fashion #trending #ootd'
+  youtube_title_template: 'Trending {category} @meeshoapp #shorts',
+  youtube_caption: 'Trending {category} ✨\n\nGet it here: {url}\n\n@meeshoapp #meesho #meeshohaul #trending #shorts #indianwear #fashion #affordablefashion',
+  facebook_caption: '🔥 Hot New Product Alert! 🔥\n\nThis beautiful {category} is now available on @meeshoapp.\n\nComment "DRESS" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nGrab yours today: {url}\n\n#meesho #meeshofashion #meeshohaul #trending #ootd',
+  instagram_caption: 'Obsessed with this {category}! 😍\n\nComment "DRESS" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nLink in bio to shop! @meeshoapp\n\n#meesho #meeshohaul #fashion #trending #musthave #indianwear #affordablefashion',
+  facebook_image_caption: '✨ Check out this gorgeous {category} from @meeshoapp!\n\nComment "DRESS" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nGet it here: {url}\n\n#meesho #meeshofinds #trending',
+  instagram_image_caption: '😍 Loving this {category}!\n\nComment "DRESS" and I will automatically DM you the exact Meesho link and price right now! 👇\n\nLink in bio to shop! @meeshoapp\n\n#meesho #meeshohaul #fashion #trending #ootd #meeshofashion'
 };
 
 const corsHeaders = {
@@ -47,14 +47,14 @@ export async function GET() {
     let mergedConfig = { ...defaultConfig, ...(typeof config === 'string' ? JSON.parse(config) : config) };
     
     // One-time migration: If they have {title} in the DB, forcefully overwrite with the new category defaults
-    if (!mergedConfig.migrated_to_category_v2 || mergedConfig.youtube_title_template?.includes('{title}')) {
+    if (!mergedConfig.migrated_to_v3_hashtags || mergedConfig.youtube_title_template?.includes('{title}')) {
       mergedConfig.youtube_title_template = defaultConfig.youtube_title_template;
       mergedConfig.youtube_caption = defaultConfig.youtube_caption;
       mergedConfig.facebook_caption = defaultConfig.facebook_caption;
       mergedConfig.instagram_caption = defaultConfig.instagram_caption;
       mergedConfig.facebook_image_caption = defaultConfig.facebook_image_caption;
       mergedConfig.instagram_image_caption = defaultConfig.instagram_image_caption;
-      mergedConfig.migrated_to_category_v2 = true;
+      mergedConfig.migrated_to_v3_hashtags = true;
       
       try {
         await redis.set('app:scheduler_config', mergedConfig);
