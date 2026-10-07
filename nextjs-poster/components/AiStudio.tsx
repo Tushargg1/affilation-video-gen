@@ -832,29 +832,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
             )}
           </div>
 
-          <div className="pt-6 border-t border-slate-200">
-            <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Upload Outro Video (Appended to all generated videos)</label>
-            <div className="flex gap-3">
-              <input 
-                type="file" 
-                accept="video/*"
-                onChange={e => setOutroVideo(e.target.files?.[0] || null)}
-                className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white/50 backdrop-blur-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100 transition-all cursor-pointer text-slate-600"
-              />
-              <button 
-                onClick={handleUploadOutro}
-                disabled={!outroVideo || isLoading}
-                className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 hover:shadow-lg transition-all active:scale-95 whitespace-nowrap"
-              >
-                Upload
-              </button>
-            </div>
-            {outroVideoUrl && (
-              <div className="mt-4 p-3 bg-pink-50 border border-pink-100 rounded-xl text-pink-900 text-sm font-medium">
-                ✅ Outro Video Uploaded! It will be automatically merged via FFmpeg at the end of all future videos.
-              </div>
-            )}
-          </div>
+
         </div>
 
         {/* Step 2: Generation */}
