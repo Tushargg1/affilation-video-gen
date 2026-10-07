@@ -6,7 +6,7 @@ export default function ProductsGallery() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ALL');
-  const [sortBy, setSortBy] = useState('newest');
+  const [sortBy, setSortBy] = useState('reviewsDesc');
   const [expandedPrompts, setExpandedPrompts] = useState<Record<string, boolean>>({});
 
   const togglePrompt = (id: string, type: string) => {
