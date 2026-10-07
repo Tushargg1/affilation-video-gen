@@ -38,10 +38,11 @@ async function handler(request: Request) {
     let title = "Amazing Product";
     let url = "";
     let category = "women's clothing";
+    let price = "299";
 
     try {
       if (pId) {
-        const { data } = await supabase.from('auto_products').select('title, product_url, is_posted, category').eq('id', pId).single();
+        const { data } = await supabase.from('auto_products').select('title, product_url, is_posted, category, price').eq('id', pId).single();
         if (data) {
           if (data.is_posted) {
             console.log(`Product ${pId} already posted, skipping duplicate QStash retry.`);
@@ -62,13 +63,44 @@ async function handler(request: Request) {
           title = data.title;
           url = data.product_url;
           category = data.category && !data.category.startsWith('{') ? data.category : 'women\'s clothing';
+          if (data.price) {
+             // Extract just the number if price contains text
+             const pMatch = data.price.match(/\d+/);
+             if (pMatch) price = pMatch[0];
+          }
         }
       }
     } catch(e) {
       console.error("Failed to fetch product data from Supabase:", e);
     }
 
-    const replaceVars = (str: string) => (str || '').replace(/{title}/g, title).replace(/{url}/g, url).replace(/{category}/g, category);
+    const getDynamicHashtags = (cat: string) => {
+      const lowerCat = (cat || '').toLowerCase();
+      const baseTags = ['#meesho', '#meeshohaul', '#affordablefashion'];
+      if (lowerCat.includes('kurti')) {
+        return [...baseTags, '#kurti', '#kurtistyle', '#ethnicwear', '#indianfashion'].join(' ');
+      }
+      if (lowerCat.includes('coord') || lowerCat.includes('co-ord')) {
+        return [...baseTags, '#coordset', '#coordsetstyle', '#womensfashion', '#outfitideas'].join(' ');
+      }
+      if (lowerCat.includes('saree')) {
+        return [...baseTags, '#saree', '#sareelook', '#sareestyle', '#indianwear', '#ethnicfashion'].join(' ');
+      }
+      if (lowerCat.includes('college') || lowerCat.includes('jeans') || lowerCat.includes('top')) {
+        return [...baseTags, '#collegeoutfit', '#collegefashion', '#casualwear', '#outfitideas', '#budgetfashion'].join(' ');
+      }
+      if (lowerCat.includes('dress') || lowerCat.includes('western') || lowerCat.includes('party')) {
+        return [...baseTags, '#partydress', '#womensfashion', '#dressideas', '#outfitinspo', '#budgetfashion'].join(' ');
+      }
+      return [...baseTags, '#womensfashion', '#outfitideas', '#budgetfashion'].join(' ');
+    };
+
+    const replaceVars = (str: string) => (str || '')
+      .replace(/{title}/g, title)
+      .replace(/{url}/g, url)
+      .replace(/{category}/g, category)
+      .replace(/{price}/g, price)
+      .replace(/{dynamic_hashtags}/g, getDynamicHashtags(category));
 
     // Video captions
     const ytTitleRaw = replaceVars(config.youtube_title_template || "Trending {category} #shorts");

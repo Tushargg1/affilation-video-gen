@@ -547,7 +547,7 @@ export default function Home() {
             </h2>
             <p className="text-xs text-slate-500 mb-6 flex items-start gap-1">
               <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              You can use {"{title}"}, {"{category}"} and {"{url}"} as placeholders. They will be automatically replaced with the product's actual title, category, and link.
+              You can use {"{title}"}, {"{category}"}, {"{price}"}, {"{dynamic_hashtags}"} and {"{url}"} as placeholders. They will be automatically replaced with the product's actual title, category, price, hashtags, and link.
             </p>
 
             <div className="space-y-6 transition-opacity">
