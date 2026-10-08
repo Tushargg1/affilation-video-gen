@@ -896,6 +896,16 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
               <div className="mt-4 p-3 bg-pink-50 border border-pink-100 rounded-xl text-pink-900 text-sm font-medium flex flex-col gap-3">
                 <span>✅ Outro Video Uploaded! It will be automatically merged via FFmpeg at the end of all future videos.</span>
                 
+                <div className="mt-2 w-24 h-40 rounded-lg overflow-hidden border-2 border-pink-200 shadow-sm relative bg-black/5">
+                  <video 
+                    src={outroVideoUrl} 
+                    className="w-full h-full object-cover" 
+                    controls 
+                    muted 
+                    loop 
+                  />
+                </div>
+
                 {selectedProduct && (selectedProduct.social_link_2 || selectedProduct.downloaded_video_path) && (
                   <button
                     onClick={handleManualOutroMerge}
