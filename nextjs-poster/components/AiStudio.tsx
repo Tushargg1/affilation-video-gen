@@ -60,6 +60,8 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   
   const [outroVideo, setOutroVideo] = useState<File | null>(null);
   const [outroVideoUrl, setOutroVideoUrl] = useState<string>('');
+  const [testBaseVideo, setTestBaseVideo] = useState<File | null>(null);
+  const [testMergedUrl, setTestMergedUrl] = useState<string>('');
   
   useEffect(() => {
     const savedOutro = localStorage.getItem('global_outro_video');
@@ -274,6 +276,65 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       setStatus({ type: 'error', message: `Merge failed: ${err.message}` });
     }
     
+    setIsLoading(false);
+  };
+
+  const handleTestMerge = async () => {
+    if (!testBaseVideo) {
+      alert("Please upload a test base video first.");
+      return;
+    }
+    if (!outroVideoUrl) {
+      alert("Please upload an outro video first.");
+      return;
+    }
+
+    setIsLoading(true);
+    setStatus({ type: 'info', message: 'Merging test video in browser (may take a minute)...' });
+
+    try {
+      const { FFmpeg } = (window as any).FFmpegWASM;
+      const ffmpeg = new FFmpeg();
+      if (!ffmpeg.loaded) {
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+      }
+      
+      const testBuffer = await testBaseVideo.arrayBuffer();
+      await ffmpeg.writeFile('video.mp4', new Uint8Array(testBuffer));
+      await ffmpeg.writeFile('outro.mp4', await fetchFile(outroVideoUrl));
+
+      const filterComplex = `[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v0];[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v1];[v0][v1]concat=n=2:v=1:a=0[outv]`;
+      
+      await ffmpeg.exec([
+        '-i', 'video.mp4',
+        '-i', 'outro.mp4',
+        '-filter_complex', filterComplex,
+        '-map', '[outv]',
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        'merged.mp4'
+      ]);
+
+      const data = await ffmpeg.readFile('merged.mp4');
+      const blob = new Blob([data], { type: 'video/mp4' });
+      
+      setStatus({ type: 'info', message: 'Uploading test merged video to Vercel...' });
+      const mergedName = `test-merged-${Date.now()}.mp4`;
+      const newBlob = await upload(mergedName, blob, {
+        access: 'public',
+        handleUploadUrl: '/api/upload'
+      });
+      
+      setTestMergedUrl(newBlob.url);
+      setStatus({ type: 'success', message: 'Test video merged and uploaded successfully!' });
+    } catch (e: any) {
+      setStatus({ type: 'error', message: `Test Merge failed: ${e.message}` });
+      console.error(e);
+    }
     setIsLoading(false);
   };
 
@@ -931,6 +992,43 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
                 )}
               </div>
             )}
+            
+            {/* Test Merge Section */}
+            <div className="mt-6 pt-6 border-t border-slate-200">
+              <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Test Merge (Optional)</label>
+              <p className="text-xs text-slate-500 mb-3">Upload a random video here to test the FFmpeg merger. It will merge with your Outro Video and upload to Vercel as a temporary file so you can verify it works.</p>
+              
+              <div className="flex gap-3">
+                <input 
+                  type="file" 
+                  accept="video/*"
+                  onChange={e => setTestBaseVideo(e.target.files?.[0] || null)}
+                  className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white/50 backdrop-blur-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all cursor-pointer text-slate-600"
+                />
+                <button 
+                  onClick={handleTestMerge}
+                  disabled={!testBaseVideo || !outroVideoUrl || isLoading}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 hover:shadow-lg transition-all active:scale-95 whitespace-nowrap"
+                >
+                  {isLoading ? 'Merging...' : 'Merge & Upload'}
+                </button>
+              </div>
+              
+              {testMergedUrl && (
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl text-blue-900 text-sm font-medium flex flex-col gap-3">
+                  <span>✅ Test Merged Video Uploaded!</span>
+                  <a href={testMergedUrl} target="_blank" className="text-blue-600 underline text-xs break-all">{testMergedUrl}</a>
+                  
+                  <div className="mt-2 w-32 h-56 rounded-lg overflow-hidden border-2 border-blue-200 shadow-sm relative bg-black/5">
+                    <video 
+                      src={testMergedUrl} 
+                      className="w-full h-full object-cover" 
+                      controls 
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
 
