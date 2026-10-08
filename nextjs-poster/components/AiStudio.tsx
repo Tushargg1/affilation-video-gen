@@ -288,8 +288,19 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       const uploadData = await uploadRes.json();
       if (!uploadRes.ok || !uploadData.url) throw new Error(uploadData.error || 'Upload failed');
       
+      setStatus({ type: 'info', message: 'Saving temporary video to database...' });
+      await fetch('/api/db/products/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          title: '[TEMP] Merged Video - ' + Date.now(), 
+          social_link_2: uploadData.url, 
+          downloaded_video_path: uploadData.url 
+        })
+      });
+      
       setTestMergedUrl(uploadData.url);
-      setStatus({ type: 'success', message: 'Test video merged and uploaded successfully!' });
+      setStatus({ type: 'success', message: 'Test video merged, uploaded, and saved to DB successfully!' });
     } catch (e: any) {
       setStatus({ type: 'error', message: `Test Merge failed: ${e.message}` });
       console.error(e);

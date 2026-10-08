@@ -134,6 +134,8 @@ app.get('/api/latest-media', (req, res) => {
 });
 
 app.post('/api/merge-video', async (req, res) => {
+    let localBase = null;
+    let localOutro = null;
     try {
         const { baseVideoUrl, outroVideoUrl } = req.body;
         if (!baseVideoUrl || !outroVideoUrl) {
@@ -145,6 +147,22 @@ app.post('/api/merge-video', async (req, res) => {
         const path = require('path');
         const fs = require('fs');
         
+        // Helper to download remote files
+        const downloadFile = async (url, prefix) => {
+            if (!url.startsWith('http')) return url; // Already local
+            console.log(`Downloading ${prefix} video from ${url}...`);
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const tempPath = path.join(os.tmpdir(), `${prefix}-${Date.now()}.mp4`);
+            fs.writeFileSync(tempPath, buffer);
+            return tempPath;
+        };
+
+        localBase = await downloadFile(baseVideoUrl, 'base');
+        localOutro = await downloadFile(outroVideoUrl, 'outro');
+
         const outputPath = path.join(os.homedir(), 'Downloads', `merged-${Date.now()}.mp4`);
         
         // Use fluent-ffmpeg to merge
@@ -153,8 +171,8 @@ app.post('/api/merge-video', async (req, res) => {
         }
         
         ffmpeg()
-            .input(baseVideoUrl)
-            .input(outroVideoUrl)
+            .input(localBase)
+            .input(localOutro)
             .complexFilter([
                 '[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v0]',
                 '[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v1]',
@@ -168,15 +186,22 @@ app.post('/api/merge-video', async (req, res) => {
             .save(outputPath)
             .on('end', () => {
                 console.log(`✅ Merge complete! Saved to ${outputPath}`);
+                // Cleanup temp files
+                if (localBase && localBase !== baseVideoUrl) fs.unlinkSync(localBase);
+                if (localOutro && localOutro !== outroVideoUrl) fs.unlinkSync(localOutro);
                 res.json({ success: true, filepath: outputPath });
             })
             .on('error', (err) => {
                 console.error(`❌ Merge failed: ${err.message}`);
+                if (localBase && localBase !== baseVideoUrl) fs.unlinkSync(localBase);
+                if (localOutro && localOutro !== outroVideoUrl) fs.unlinkSync(localOutro);
                 res.status(500).json({ error: err.message });
             });
             
     } catch (e) {
         console.error('Merge API error:', e);
+        if (localBase && localBase !== req.body.baseVideoUrl && require('fs').existsSync(localBase)) require('fs').unlinkSync(localBase);
+        if (localOutro && localOutro !== req.body.outroVideoUrl && require('fs').existsSync(localOutro)) require('fs').unlinkSync(localOutro);
         res.status(500).json({ error: e.message });
     }
 });
