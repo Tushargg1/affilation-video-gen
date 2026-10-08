@@ -2,8 +2,21 @@
 
 import { useEffect, useRef } from 'react';
 import { upload } from '@vercel/blob/client';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+// Removed Webpack-crashing imports:
+// import { FFmpeg } from '@ffmpeg/ffmpeg';
+// Re-implement @ffmpeg/util locally to bypass Next.js Webpack dynamic require crashes
+const fetchFile = async (url: string) => {
+  const res = await fetch(url);
+  const buffer = await res.arrayBuffer();
+  return new Uint8Array(buffer);
+};
+
+const toBlobURL = async (url: string, mimeType: string) => {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  // We can just construct a blob and create object URL
+  return URL.createObjectURL(new Blob([blob], { type: mimeType }));
+};
 
 // Shared helper to write logs to localStorage so the UI can display them
 const writeLog = (msg: string) => {
@@ -572,6 +585,7 @@ export default function GlobalAutoPilot() {
 
             if (globalOutroUrl && finalVideoBase64) {
               writeLog('FFMPEG: Detected Global Outro. Merging videos in browser using WASM...');
+              const { FFmpeg } = (window as any).FFmpegWASM;
               const ffmpeg = new FFmpeg();
               
               if (!ffmpeg.loaded) {

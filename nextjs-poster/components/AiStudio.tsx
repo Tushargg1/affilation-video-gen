@@ -3,6 +3,19 @@
 import { useState, useRef, useEffect } from 'react';
 import { upload } from '@vercel/blob/client';
 
+// Re-implement @ffmpeg/util locally to bypass Next.js Webpack dynamic require crashes
+const fetchFile = async (url: string) => {
+  const res = await fetch(url);
+  const buffer = await res.arrayBuffer();
+  return new Uint8Array(buffer);
+};
+
+const toBlobURL = async (url: string, mimeType: string) => {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return URL.createObjectURL(new Blob([blob], { type: mimeType }));
+};
+
 export default function AiStudio({ products, schedulerConfig }: { products: any[], schedulerConfig: any }) {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
@@ -212,6 +225,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     try {
       const sourceVideoUrl = selectedProduct.social_link_2 || selectedProduct.downloaded_video_path;
       
+      const { FFmpeg } = (window as any).FFmpegWASM;
       const ffmpeg = new FFmpeg();
       if (!ffmpeg.loaded) {
         const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
