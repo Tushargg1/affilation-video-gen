@@ -46,12 +46,16 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
   const [modelPhoto, setModelPhoto] = useState<File | null>(null);
   const [modelPhotoUrl, setModelPhotoUrl] = useState<string>('');
   
+  const [introVideo, setIntroVideo] = useState<File | null>(null);
+  const [introVideoUrl, setIntroVideoUrl] = useState<string>('');
   const [outroVideo, setOutroVideo] = useState<File | null>(null);
   const [outroVideoUrl, setOutroVideoUrl] = useState<string>('');
   const [testBaseVideo, setTestBaseVideo] = useState<File | null>(null);
   const [testMergedUrl, setTestMergedUrl] = useState<string>('');
   
   useEffect(() => {
+    const savedIntro = localStorage.getItem('global_intro_video');
+    if (savedIntro) setIntroVideoUrl(savedIntro);
     const savedOutro = localStorage.getItem('global_outro_video');
     if (savedOutro) setOutroVideoUrl(savedOutro);
   }, []);
@@ -176,6 +180,28 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     setIsLoading(false);
   };
 
+  const handleUploadIntro = async () => {
+    if (!introVideo) return;
+    setIsLoading(true);
+    setStatus({ type: 'info', message: 'Uploading intro video...' });
+    try {
+      const ext = introVideo.name.split('.').pop() || 'mp4';
+      const fixedName = `global-intro-video.${ext}`;
+      
+      const newBlob = await upload(fixedName, introVideo, {
+        access: 'public',
+        handleUploadUrl: '/api/upload'
+      });
+      setIntroVideoUrl(newBlob.url);
+      localStorage.setItem('global_intro_video', newBlob.url);
+      
+      setStatus({ type: 'success', message: 'Intro video uploaded successfully!' });
+    } catch (e: any) {
+      setStatus({ type: 'error', message: `Upload failed: ${e.message}` });
+    }
+    setIsLoading(false);
+  };
+
   const handleUploadOutro = async () => {
     if (!outroVideo) return;
     setIsLoading(true);
@@ -198,14 +224,14 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     setIsLoading(false);
   };
 
-  const handleManualOutroMerge = async () => {
+  const handleManualMerge = async () => {
     if (!selectedProduct || (!selectedProduct.social_link_2 && !selectedProduct.downloaded_video_path)) {
       alert("This product does not have a generated video yet.");
       return;
     }
     
-    if (!outroVideoUrl) {
-      alert("Please upload an outro video first.");
+    if (!outroVideoUrl && !introVideoUrl) {
+      alert("Please upload an intro or outro video first.");
       return;
     }
 
@@ -218,7 +244,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       const mergeRes = await fetch('http://localhost:3001/api/merge-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ baseVideoUrl: sourceVideoUrl, outroVideoUrl })
+        body: JSON.stringify({ introVideoUrl, baseVideoUrl: sourceVideoUrl, outroVideoUrl })
       });
       const mergeData = await mergeRes.json();
       if (!mergeRes.ok || !mergeData.success) throw new Error(mergeData.error || 'Merge failed on local server');
@@ -254,8 +280,8 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       alert("Please upload a test base video first.");
       return;
     }
-    if (!outroVideoUrl) {
-      alert("Please upload an outro video first.");
+    if (!outroVideoUrl && !introVideoUrl) {
+      alert("Please upload an intro or outro video first.");
       return;
     }
 
@@ -273,7 +299,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
       const mergeRes = await fetch('http://localhost:3001/api/merge-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ baseVideoUrl: testBlob.url, outroVideoUrl })
+        body: JSON.stringify({ introVideoUrl, baseVideoUrl: testBlob.url, outroVideoUrl })
       });
       const mergeData = await mergeRes.json();
       if (!mergeRes.ok || !mergeData.success) throw new Error(mergeData.error || 'Merge failed on local server');
@@ -921,6 +947,40 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
           </div>
 
           <div className="pt-6 border-t border-slate-200">
+            <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Upload Intro Video (Prepended to all generated videos)</label>
+            <div className="flex gap-3">
+              <input 
+                type="file" 
+                accept="video/*"
+                onChange={e => setIntroVideo(e.target.files?.[0] || null)}
+                className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white/50 backdrop-blur-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100 transition-all cursor-pointer text-slate-600"
+              />
+              <button 
+                onClick={handleUploadIntro}
+                disabled={!introVideo || isLoading}
+                className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 hover:shadow-lg transition-all active:scale-95 whitespace-nowrap"
+              >
+                Upload
+              </button>
+            </div>
+            {introVideoUrl && (
+              <div className="mt-4 p-3 bg-pink-50 border border-pink-100 rounded-xl text-pink-900 text-sm font-medium flex flex-col gap-3">
+                <span>✅ Intro Video Uploaded! It will be automatically merged via FFmpeg at the start of all future videos.</span>
+                
+                <div className="mt-2 w-24 h-40 rounded-lg overflow-hidden border-2 border-pink-200 shadow-sm relative bg-black/5">
+                  <video 
+                    src={introVideoUrl} 
+                    className="w-full h-full object-cover" 
+                    controls 
+                    muted 
+                    loop 
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-6 border-t border-slate-200">
             <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Upload Outro Video (Appended to all generated videos)</label>
             <div className="flex gap-3">
               <input 
@@ -953,11 +1013,11 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
 
                 {selectedProduct && (selectedProduct.social_link_2 || selectedProduct.downloaded_video_path) && (
                   <button
-                    onClick={handleManualOutroMerge}
+                    onClick={handleManualMerge}
                     disabled={isLoading}
                     className="w-full bg-pink-600 text-white hover:bg-pink-700 px-4 py-2 rounded-lg font-bold transition-all disabled:opacity-50 text-xs shadow-sm flex justify-center items-center gap-2"
                   >
-                    {isLoading ? 'Processing...' : 'Merge Outro to Selected Product Video'}
+                    {isLoading ? 'Processing...' : 'Merge Templates to Selected Product Video'}
                   </button>
                 )}
               </div>
@@ -966,7 +1026,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
             {/* Test Merge Section */}
             <div className="mt-6 pt-6 border-t border-slate-200">
               <label className="block text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wider">Test Merge (Optional)</label>
-              <p className="text-xs text-slate-500 mb-3">Upload a random video here to test the FFmpeg merger. It will merge with your Outro Video and upload to Vercel as a temporary file so you can verify it works.</p>
+              <p className="text-xs text-slate-500 mb-3">Upload a random video here to test the FFmpeg merger. It will merge with your Intro/Outro Videos and upload to Vercel as a temporary file so you can verify it works.</p>
               
               <div className="flex gap-3">
                 <input 
@@ -977,7 +1037,7 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
                 />
                 <button 
                   onClick={handleTestMerge}
-                  disabled={!testBaseVideo || !outroVideoUrl || isLoading}
+                  disabled={!testBaseVideo || (!outroVideoUrl && !introVideoUrl) || isLoading}
                   className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 hover:shadow-lg transition-all active:scale-95 whitespace-nowrap"
                 >
                   {isLoading ? 'Merging...' : 'Merge & Upload'}

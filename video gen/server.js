@@ -134,12 +134,16 @@ app.get('/api/latest-media', (req, res) => {
 });
 
 app.post('/api/merge-video', async (req, res) => {
+    let localIntro = null;
     let localBase = null;
     let localOutro = null;
     try {
-        const { baseVideoUrl, outroVideoUrl } = req.body;
-        if (!baseVideoUrl || !outroVideoUrl) {
-            return res.status(400).json({ error: 'Missing video URLs' });
+        const { introVideoUrl, baseVideoUrl, outroVideoUrl } = req.body;
+        if (!baseVideoUrl) {
+            return res.status(400).json({ error: 'Missing base video URL' });
+        }
+        if (!introVideoUrl && !outroVideoUrl) {
+             return res.status(400).json({ error: 'Missing intro or outro video URL to merge with' });
         }
         
         console.log(`\n🎬 Merging videos locally...`);
@@ -160,8 +164,9 @@ app.post('/api/merge-video', async (req, res) => {
             return tempPath;
         };
 
+        if (introVideoUrl) localIntro = await downloadFile(introVideoUrl, 'intro');
         localBase = await downloadFile(baseVideoUrl, 'base');
-        localOutro = await downloadFile(outroVideoUrl, 'outro');
+        if (outroVideoUrl) localOutro = await downloadFile(outroVideoUrl, 'outro');
 
         const outputPath = path.join(os.homedir(), 'Downloads', `merged-${Date.now()}.mp4`);
         
@@ -170,14 +175,34 @@ app.post('/api/merge-video', async (req, res) => {
             return res.status(500).json({ error: 'fluent-ffmpeg not available' });
         }
         
-        ffmpeg()
-            .input(localBase)
-            .input(localOutro)
-            .complexFilter([
-                '[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v0]',
-                '[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v1]',
-                '[v0][v1]concat=n=2:v=1:a=0[outv]'
-            ])
+        const ff = ffmpeg();
+        let inputCount = 0;
+        let complexFilter = [];
+
+        if (localIntro) {
+            ff.input(localIntro);
+            complexFilter.push(`[${inputCount}:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v${inputCount}]`);
+            inputCount++;
+        }
+
+        ff.input(localBase);
+        complexFilter.push(`[${inputCount}:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v${inputCount}]`);
+        inputCount++;
+
+        if (localOutro) {
+            ff.input(localOutro);
+            complexFilter.push(`[${inputCount}:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v${inputCount}]`);
+            inputCount++;
+        }
+
+        let concatFilter = '';
+        for (let i = 0; i < inputCount; i++) {
+            concatFilter += `[v${i}]`;
+        }
+        concatFilter += `concat=n=${inputCount}:v=1:a=0[outv]`;
+        complexFilter.push(concatFilter);
+
+        ff.complexFilter(complexFilter)
             .outputOptions([
                 '-map [outv]',
                 '-c:v libx264',
@@ -187,12 +212,14 @@ app.post('/api/merge-video', async (req, res) => {
             .on('end', () => {
                 console.log(`✅ Merge complete! Saved to ${outputPath}`);
                 // Cleanup temp files
+                if (localIntro && localIntro !== introVideoUrl) fs.unlinkSync(localIntro);
                 if (localBase && localBase !== baseVideoUrl) fs.unlinkSync(localBase);
                 if (localOutro && localOutro !== outroVideoUrl) fs.unlinkSync(localOutro);
                 res.json({ success: true, filepath: outputPath });
             })
             .on('error', (err) => {
                 console.error(`❌ Merge failed: ${err.message}`);
+                if (localIntro && localIntro !== introVideoUrl) fs.unlinkSync(localIntro);
                 if (localBase && localBase !== baseVideoUrl) fs.unlinkSync(localBase);
                 if (localOutro && localOutro !== outroVideoUrl) fs.unlinkSync(localOutro);
                 res.status(500).json({ error: err.message });
@@ -200,6 +227,7 @@ app.post('/api/merge-video', async (req, res) => {
             
     } catch (e) {
         console.error('Merge API error:', e);
+        if (localIntro && localIntro !== req.body.introVideoUrl && require('fs').existsSync(localIntro)) require('fs').unlinkSync(localIntro);
         if (localBase && localBase !== req.body.baseVideoUrl && require('fs').existsSync(localBase)) require('fs').unlinkSync(localBase);
         if (localOutro && localOutro !== req.body.outroVideoUrl && require('fs').existsSync(localOutro)) require('fs').unlinkSync(localOutro);
         res.status(500).json({ error: e.message });
