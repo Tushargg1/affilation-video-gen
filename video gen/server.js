@@ -14,6 +14,16 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'ui.html'));
 });
 
+let ffmpegPath;
+let ffmpeg;
+try {
+    ffmpegPath = require('ffmpeg-static');
+    ffmpeg = require('fluent-ffmpeg');
+    ffmpeg.setFfmpegPath(ffmpegPath);
+} catch (e) {
+    console.warn("fluent-ffmpeg not installed, merge API will not work");
+}
+
 let currentJob = null;
 
 app.post('/api/job', (req, res) => {
@@ -120,6 +130,54 @@ app.get('/api/latest-media', (req, res) => {
         res.json({ success: false, error: `No recent ${type} found in Downloads newer than job start time` });
     } catch(e) {
         res.json({ success: false, error: e.message });
+    }
+});
+
+app.post('/api/merge-video', async (req, res) => {
+    try {
+        const { baseVideoUrl, outroVideoUrl } = req.body;
+        if (!baseVideoUrl || !outroVideoUrl) {
+            return res.status(400).json({ error: 'Missing video URLs' });
+        }
+        
+        console.log(`\n🎬 Merging videos locally...`);
+        const os = require('os');
+        const path = require('path');
+        const fs = require('fs');
+        
+        const outputPath = path.join(os.homedir(), 'Downloads', `merged-${Date.now()}.mp4`);
+        
+        // Use fluent-ffmpeg to merge
+        if (!ffmpeg) {
+            return res.status(500).json({ error: 'fluent-ffmpeg not available' });
+        }
+        
+        ffmpeg()
+            .input(baseVideoUrl)
+            .input(outroVideoUrl)
+            .complexFilter([
+                '[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v0]',
+                '[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v1]',
+                '[v0][v1]concat=n=2:v=1:a=0[outv]'
+            ])
+            .outputOptions([
+                '-map [outv]',
+                '-c:v libx264',
+                '-preset ultrafast'
+            ])
+            .save(outputPath)
+            .on('end', () => {
+                console.log(`✅ Merge complete! Saved to ${outputPath}`);
+                res.json({ success: true, filepath: outputPath });
+            })
+            .on('error', (err) => {
+                console.error(`❌ Merge failed: ${err.message}`);
+                res.status(500).json({ error: err.message });
+            });
+            
+    } catch (e) {
+        console.error('Merge API error:', e);
+        res.status(500).json({ error: e.message });
     }
 });
 

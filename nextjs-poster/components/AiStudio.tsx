@@ -3,18 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { upload } from '@vercel/blob/client';
 
-// Re-implement @ffmpeg/util locally to bypass Next.js Webpack dynamic require crashes
-const fetchFile = async (url: string) => {
-  const res = await fetch(url);
-  const buffer = await res.arrayBuffer();
-  return new Uint8Array(buffer);
-};
-
-const toBlobURL = async (url: string, mimeType: string) => {
-  const res = await fetch(url);
-  const blob = await res.blob();
-  return URL.createObjectURL(new Blob([blob], { type: mimeType }));
-};
 
 export default function AiStudio({ products, schedulerConfig }: { products: any[], schedulerConfig: any }) {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -222,51 +210,33 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     }
 
     setIsLoading(true);
-    setStatus({ type: 'info', message: 'Merging video in browser (may take a minute)...' });
+    setStatus({ type: 'info', message: 'Merging video via local server (may take a minute)...' });
 
     try {
       const sourceVideoUrl = selectedProduct.social_link_2 || selectedProduct.downloaded_video_path;
       
-      const { FFmpeg } = (window as any).FFmpegWASM;
-      const ffmpeg = new FFmpeg();
-      if (!ffmpeg.loaded) {
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-        await ffmpeg.load({
-          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        });
-      }
-      
-      await ffmpeg.writeFile('video.mp4', await fetchFile(sourceVideoUrl));
-      await ffmpeg.writeFile('outro.mp4', await fetchFile(outroVideoUrl));
-
-      const filterComplex = `[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v0];[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v1];[v0][v1]concat=n=2:v=1:a=0[outv]`;
-      
-      await ffmpeg.exec([
-        '-i', 'video.mp4',
-        '-i', 'outro.mp4',
-        '-filter_complex', filterComplex,
-        '-map', '[outv]',
-        '-c:v', 'libx264',
-        '-preset', 'ultrafast',
-        'merged.mp4'
-      ]);
-
-      const data = await ffmpeg.readFile('merged.mp4');
-      const blob = new Blob([data], { type: 'video/mp4' });
-      const mergedName = `merged-video-${selectedProduct.id}-${Date.now()}.mp4`;
-      
-      setStatus({ type: 'info', message: 'Uploading merged video...' });
-      
-      const newBlob = await upload(mergedName, blob, {
-        access: 'public',
-        handleUploadUrl: '/api/upload'
+      const mergeRes = await fetch('http://localhost:3001/api/merge-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseVideoUrl: sourceVideoUrl, outroVideoUrl })
       });
+      const mergeData = await mergeRes.json();
+      if (!mergeRes.ok || !mergeData.success) throw new Error(mergeData.error || 'Merge failed on local server');
+
+      setStatus({ type: 'info', message: 'Uploading merged video from local server to Vercel...' });
+      
+      const uploadRes = await fetch('http://localhost:3001/api/upload-local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filepath: mergeData.filepath })
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok || !uploadData.url) throw new Error(uploadData.error || 'Upload failed');
       
       await fetch('/api/db/products/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selectedProduct.id, social_link_2: newBlob.url, downloaded_video_path: newBlob.url })
+        body: JSON.stringify({ id: selectedProduct.id, social_link_2: uploadData.url, downloaded_video_path: uploadData.url })
       });
       
       setStatus({ type: 'success', message: 'Video successfully merged and updated!' });
@@ -290,46 +260,35 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     }
 
     setIsLoading(true);
-    setStatus({ type: 'info', message: 'Merging test video in browser (may take a minute)...' });
+    setStatus({ type: 'info', message: 'Uploading test video to Vercel for merge...' });
 
     try {
-      const { FFmpeg } = (window as any).FFmpegWASM;
-      const ffmpeg = new FFmpeg();
-      if (!ffmpeg.loaded) {
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-        await ffmpeg.load({
-          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        });
-      }
-      
-      const testBuffer = await testBaseVideo.arrayBuffer();
-      await ffmpeg.writeFile('video.mp4', new Uint8Array(testBuffer));
-      await ffmpeg.writeFile('outro.mp4', await fetchFile(outroVideoUrl));
-
-      const filterComplex = `[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v0];[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v1];[v0][v1]concat=n=2:v=1:a=0[outv]`;
-      
-      await ffmpeg.exec([
-        '-i', 'video.mp4',
-        '-i', 'outro.mp4',
-        '-filter_complex', filterComplex,
-        '-map', '[outv]',
-        '-c:v', 'libx264',
-        '-preset', 'ultrafast',
-        'merged.mp4'
-      ]);
-
-      const data = await ffmpeg.readFile('merged.mp4');
-      const blob = new Blob([data], { type: 'video/mp4' });
-      
-      setStatus({ type: 'info', message: 'Uploading test merged video to Vercel...' });
-      const mergedName = `test-merged-${Date.now()}.mp4`;
-      const newBlob = await upload(mergedName, blob, {
+      const testName = `test-base-${Date.now()}.${testBaseVideo.name.split('.').pop() || 'mp4'}`;
+      const testBlob = await upload(testName, testBaseVideo, {
         access: 'public',
         handleUploadUrl: '/api/upload'
       });
       
-      setTestMergedUrl(newBlob.url);
+      setStatus({ type: 'info', message: 'Merging test video via local server (may take a minute)...' });
+      const mergeRes = await fetch('http://localhost:3001/api/merge-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseVideoUrl: testBlob.url, outroVideoUrl })
+      });
+      const mergeData = await mergeRes.json();
+      if (!mergeRes.ok || !mergeData.success) throw new Error(mergeData.error || 'Merge failed on local server');
+
+      setStatus({ type: 'info', message: 'Uploading merged test video from local server to Vercel...' });
+      
+      const uploadRes = await fetch('http://localhost:3001/api/upload-local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filepath: mergeData.filepath })
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok || !uploadData.url) throw new Error(uploadData.error || 'Upload failed');
+      
+      setTestMergedUrl(uploadData.url);
       setStatus({ type: 'success', message: 'Test video merged and uploaded successfully!' });
     } catch (e: any) {
       setStatus({ type: 'error', message: `Test Merge failed: ${e.message}` });

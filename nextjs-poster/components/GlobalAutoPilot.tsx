@@ -582,71 +582,28 @@ export default function GlobalAutoPilot() {
             const globalOutroUrl = localStorage.getItem('global_outro_video');
 
             if (globalOutroUrl && finalVideoBase64) {
-              writeLog('FFMPEG: Detected Global Outro. Merging videos in browser using WASM...');
-              const { FFmpeg } = (window as any).FFmpegWASM;
-              const ffmpeg = new FFmpeg();
-              
-              if (!ffmpeg.loaded) {
-                const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-                await ffmpeg.load({
-                  coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                  wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-                });
-              }
-
-              writeLog('FFMPEG: Writing files to memory...');
-              const filename = finalVideoUrl.split('\\').pop()?.split('/').pop() || '';
-              if (filename) {
-                  await ffmpeg.writeFile('video.mp4', await fetchFile(`http://localhost:3001/api/media/${filename}`));
-              } else {
-                  throw new Error("Could not extract filename from " + finalVideoUrl);
-              }
-              await ffmpeg.writeFile('outro.mp4', await fetchFile(globalOutroUrl));
-
-              writeLog('FFMPEG: Concatenating videos (Scaling to 1080x1920)...');
-              const filterComplex = `[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v0];[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v1];[v0][v1]concat=n=2:v=1:a=0[outv]`;
-              
-              await ffmpeg.exec([
-                '-i', 'video.mp4',
-                '-i', 'outro.mp4',
-                '-filter_complex', filterComplex,
-                '-map', '[outv]',
-                '-c:v', 'libx264',
-                '-preset', 'ultrafast',
-                'merged.mp4'
-              ]);
-
-              writeLog('FFMPEG: Merge complete! Uploading merged video directly to Vercel...');
-              const data = await ffmpeg.readFile('merged.mp4');
-              const blob = new Blob([data], { type: 'video/mp4' });
-              const mergedName = `merged-video-${prod.id}-${Date.now()}.mp4`;
-              
-              const newBlob = await upload(mergedName, blob, {
-                access: 'public',
-                handleUploadUrl: '/api/upload'
+              writeLog('Global Outro detected, but merging is disabled in headless mode. Uploading video directly.');
+            }
+            
+            // Standard upload logic
+            if (finalVideoUrl.includes('\\') || finalVideoUrl.includes('/')) {
+              writeLog('Uploading directly from local server (bypasses 4MB limit)...');
+              const localRes = await fetch('http://localhost:3001/api/upload-local', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filepath: finalVideoUrl })
               });
-              uploadUrl = newBlob.url;
-              writeLog(`✅ Merged video uploaded to: ${uploadUrl}`);
+              const localData = await localRes.json();
+              if (localData.url) uploadUrl = localData.url;
             } else {
-              // Standard upload logic if no outro
-              if (finalVideoUrl.includes('\\') || finalVideoUrl.includes('/')) {
-                writeLog('Uploading directly from local server (bypasses 4MB limit)...');
-                const localRes = await fetch('http://localhost:3001/api/upload-local', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ filepath: finalVideoUrl })
-                });
-                const localData = await localRes.json();
-                if (localData.url) uploadUrl = localData.url;
-              } else {
-                const uploadRes = await fetch('/api/upload', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ base64: finalVideoUrl, isVideo: true })
-                });
-                const uploadData = await uploadRes.json();
-                if (uploadData.url) uploadUrl = uploadData.url;
-              }
+              writeLog('Uploading base64 string directly to Vercel (subject to 4MB limit)...');
+              const uploadRes = await fetch('/api/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ base64: finalVideoUrl, isVideo: true })
+              });
+              const uploadData = await uploadRes.json();
+              if (uploadData.url) uploadUrl = uploadData.url;
             }
 
             if (uploadUrl) {
