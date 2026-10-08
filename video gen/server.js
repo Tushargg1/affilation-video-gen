@@ -155,6 +155,22 @@ app.post('/api/upload-local', async (req, res) => {
     }
 });
 
+app.get('/api/media/:filename', (req, res) => {
+    try {
+        const os = require('os');
+        const fs = require('fs');
+        const path = require('path');
+        const filePath = path.join(os.homedir(), 'Downloads', req.params.filename);
+        if (fs.existsSync(filePath)) {
+            res.sendFile(filePath);
+        } else {
+            res.status(404).send('Not found');
+        }
+    } catch(e) {
+        res.status(500).send(e.message);
+    }
+});
+
 app.post('/generate', async (req, res) => {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ success: false, error: 'Prompt is required' });

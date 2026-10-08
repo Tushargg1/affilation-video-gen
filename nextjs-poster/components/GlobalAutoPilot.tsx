@@ -583,7 +583,12 @@ export default function GlobalAutoPilot() {
               }
 
               writeLog('FFMPEG: Writing files to memory...');
-              await ffmpeg.writeFile('video.mp4', await fetchFile(finalVideoBase64));
+              const filename = finalVideoUrl.split('\\').pop()?.split('/').pop() || '';
+              if (filename) {
+                  await ffmpeg.writeFile('video.mp4', await fetchFile(`http://localhost:3001/api/media/${filename}`));
+              } else {
+                  throw new Error("Could not extract filename from " + finalVideoUrl);
+              }
               await ffmpeg.writeFile('outro.mp4', await fetchFile(globalOutroUrl));
 
               writeLog('FFMPEG: Concatenating videos (Scaling to 1080x1920)...');
@@ -644,8 +649,9 @@ export default function GlobalAutoPilot() {
               writeLog(`🎉 Finished Product: ${prod.title}! It is now in the queue for auto-posting.`);
               genCount++;
             }
-          } catch (e) {
-            writeLog('❌ Failed to upload video to Vercel.');
+          } catch (e: any) {
+            console.error(e);
+            writeLog(`❌ Failed to upload/merge video: ${e.message || e.toString()}`);
           }
         }
       } else {
