@@ -175,52 +175,75 @@ app.post('/api/merge-video', async (req, res) => {
             return res.status(500).json({ error: 'fluent-ffmpeg not available' });
         }
         
+        const util = require('util');
+        const ffprobe = util.promisify(ffmpeg.ffprobe);
+        const ffmpegPath = require('ffmpeg-static');
+        const ffprobePath = require('ffprobe-static').path;
+        ffmpeg.setFfmpegPath(ffmpegPath);
+        ffmpeg.setFfprobePath(ffprobePath);
+
+        const hasAudio = async (filePath) => {
+            try {
+                const data = await ffprobe(filePath);
+                return data.streams.some(s => s.codec_type === 'audio');
+            } catch(e) {
+                console.error('ffprobe error on', filePath, e.message);
+                return false;
+            }
+        };
+
+        const inputs = [];
+        if (localIntro) inputs.push({ path: localIntro, type: 'intro', hasAudio: await hasAudio(localIntro) });
+        inputs.push({ path: localBase, type: 'base', hasAudio: await hasAudio(localBase) });
+        if (localOutro) inputs.push({ path: localOutro, type: 'outro', hasAudio: await hasAudio(localOutro) });
+
         const ff = ffmpeg();
-        let inputCount = 0;
         let complexFilter = [];
-
-        if (localIntro) {
-            ff.input(localIntro);
-            complexFilter.push(`[${inputCount}:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v${inputCount}]`);
-            inputCount++;
-        }
-
-        ff.input(localBase);
-        complexFilter.push(`[${inputCount}:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v${inputCount}]`);
-        inputCount++;
-
-        if (localOutro) {
-            ff.input(localOutro);
-            complexFilter.push(`[${inputCount}:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v${inputCount}]`);
-            inputCount++;
-        }
-
         let concatFilter = '';
-        for (let i = 0; i < inputCount; i++) {
-            concatFilter += `[v${i}]`;
+
+        for (let i = 0; i < inputs.length; i++) {
+            ff.input(inputs[i].path);
+            // Normalize video
+            complexFilter.push(`[${i}:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p[v${i}]`);
+            
+            let audioStream;
+            if (inputs[i].hasAudio) {
+                // Normalize audio to stereo 48000Hz
+                complexFilter.push(`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo[a${i}]`);
+                audioStream = `[a${i}]`;
+            } else {
+                // Generate a silent audio stream
+                complexFilter.push(`anullsrc=channel_layout=stereo:sample_rate=48000:d=60[silence${i}]`);
+                audioStream = `[silence${i}]`;
+            }
+            concatFilter += `[v${i}]${audioStream}`;
         }
-        concatFilter += `concat=n=${inputCount}:v=1:a=0[outv]`;
+        
+        concatFilter += `concat=n=${inputs.length}:v=1:a=1[outv][outa]`;
         complexFilter.push(concatFilter);
 
         ff.complexFilter(complexFilter)
             .outputOptions([
                 '-map [outv]',
+                '-map [outa]',
                 '-c:v libx264',
-                '-preset ultrafast'
+                '-preset ultrafast',
+                '-c:a aac'
             ])
             .save(outputPath)
             .on('end', () => {
                 console.log(`✅ Merge complete! Saved to ${outputPath}`);
                 // Cleanup temp files
                 if (localIntro && localIntro !== introVideoUrl) fs.unlinkSync(localIntro);
-                if (localBase && localBase !== baseVideoUrl) fs.unlinkSync(localBase);
+                // Always delete the original base video if we successfully merged
+                if (localBase && fs.existsSync(localBase)) fs.unlinkSync(localBase);
                 if (localOutro && localOutro !== outroVideoUrl) fs.unlinkSync(localOutro);
                 res.json({ success: true, filepath: outputPath });
             })
             .on('error', (err) => {
                 console.error(`❌ Merge failed: ${err.message}`);
                 if (localIntro && localIntro !== introVideoUrl) fs.unlinkSync(localIntro);
-                if (localBase && localBase !== baseVideoUrl) fs.unlinkSync(localBase);
+                // On error, do not delete the original base video so it can be uploaded as fallback
                 if (localOutro && localOutro !== outroVideoUrl) fs.unlinkSync(localOutro);
                 res.status(500).json({ error: err.message });
             });
@@ -228,7 +251,7 @@ app.post('/api/merge-video', async (req, res) => {
     } catch (e) {
         console.error('Merge API error:', e);
         if (localIntro && localIntro !== req.body.introVideoUrl && require('fs').existsSync(localIntro)) require('fs').unlinkSync(localIntro);
-        if (localBase && localBase !== req.body.baseVideoUrl && require('fs').existsSync(localBase)) require('fs').unlinkSync(localBase);
+        // On error, don't delete base
         if (localOutro && localOutro !== req.body.outroVideoUrl && require('fs').existsSync(localOutro)) require('fs').unlinkSync(localOutro);
         res.status(500).json({ error: e.message });
     }

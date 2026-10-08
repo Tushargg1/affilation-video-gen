@@ -579,19 +579,40 @@ export default function GlobalAutoPilot() {
           writeLog('Processing & Uploading generated video...');
           try {
             let uploadUrl = null;
+            const globalIntroUrl = localStorage.getItem('global_intro_video');
             const globalOutroUrl = localStorage.getItem('global_outro_video');
-
-            if (globalOutroUrl && finalVideoBase64) {
-              writeLog('Global Outro detected, but merging is disabled in headless mode. Uploading video directly.');
-            }
             
+            writeLog(`DEBUG: intro=${globalIntroUrl ? 'YES' : 'NO'}, outro=${globalOutroUrl ? 'YES' : 'NO'}`);
+            
+            let targetUploadPath = finalVideoUrl;
+
+            if (globalIntroUrl || globalOutroUrl) {
+              writeLog('Global Intro/Outro detected. Merging video locally...');
+              const mergeRes = await fetch('http://localhost:3001/api/merge-video', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  introVideoUrl: globalIntroUrl || null, 
+                  baseVideoUrl: finalVideoUrl, 
+                  outroVideoUrl: globalOutroUrl || null 
+                })
+              });
+              const mergeData = await mergeRes.json();
+              if (mergeRes.ok && mergeData.success) {
+                targetUploadPath = mergeData.filepath;
+                writeLog('✅ Merging complete.');
+              } else {
+                writeLog(`⚠️ Merging failed: ${mergeData.error}. Falling back to original video.`);
+              }
+            }
+
             // Standard upload logic
-            if (finalVideoUrl.includes('\\') || finalVideoUrl.includes('/')) {
+            if (targetUploadPath.includes('\\') || targetUploadPath.includes('/')) {
               writeLog('Uploading directly from local server (bypasses 4MB limit)...');
               const localRes = await fetch('http://localhost:3001/api/upload-local', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filepath: finalVideoUrl })
+                body: JSON.stringify({ filepath: targetUploadPath })
               });
               const localData = await localRes.json();
               if (localData.url) uploadUrl = localData.url;
@@ -600,7 +621,7 @@ export default function GlobalAutoPilot() {
               const uploadRes = await fetch('/api/upload', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ base64: finalVideoUrl, isVideo: true })
+                body: JSON.stringify({ base64: targetUploadPath, isVideo: true })
               });
               const uploadData = await uploadRes.json();
               if (uploadData.url) uploadUrl = uploadData.url;
