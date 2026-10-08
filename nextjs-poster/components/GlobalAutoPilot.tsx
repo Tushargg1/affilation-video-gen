@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from 'react';
 import { upload } from '@vercel/blob/client';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
 // Re-implement @ffmpeg/util locally to bypass Next.js Webpack dynamic require crashes
 const fetchFile = async (url: string) => {
   const res = await fetch(url);
@@ -584,6 +583,7 @@ export default function GlobalAutoPilot() {
 
             if (globalOutroUrl && finalVideoBase64) {
               writeLog('FFMPEG: Detected Global Outro. Merging videos in browser using WASM...');
+              const { FFmpeg } = (window as any).FFmpegWASM;
               const ffmpeg = new FFmpeg();
               
               if (!ffmpeg.loaded) {
