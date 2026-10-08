@@ -567,6 +567,26 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
                   break;
               }
               
+              if (type === 'video' && (introVideoUrl || outroVideoUrl)) {
+                 setStatus({ type: 'info', message: `Auto-merging Intro/Outro with generated video...` });
+                 try {
+                     const mergeRes = await fetch('http://localhost:3001/api/merge-video', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ introVideoUrl, baseVideoUrl: base64ToUpload, outroVideoUrl })
+                     });
+                     const mergeData = await mergeRes.json();
+                     if (mergeRes.ok && mergeData.success) {
+                         base64ToUpload = mergeData.filepath;
+                     } else {
+                         console.warn("Auto-merge failed:", mergeData.error);
+                         setStatus({ type: 'error', message: `Auto-merge failed: ${mergeData.error}` });
+                     }
+                 } catch(err: any) {
+                     console.warn("Auto-merge fetch failed:", err);
+                 }
+              }
+              
               setStatus({ type: 'info', message: `Uploading ${type} to Vercel...` });
               let uploadUrl = null;
               
