@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { upload } from '@vercel/blob/client';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
 
 // Re-implement @ffmpeg/util locally to bypass Next.js Webpack dynamic require crashes
 const fetchFile = async (url: string) => {
@@ -225,7 +226,6 @@ export default function AiStudio({ products, schedulerConfig }: { products: any[
     try {
       const sourceVideoUrl = selectedProduct.social_link_2 || selectedProduct.downloaded_video_path;
       
-      const { FFmpeg } = (window as any).FFmpegWASM;
       const ffmpeg = new FFmpeg();
       if (!ffmpeg.loaded) {
         const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
