@@ -1,0 +1,29 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Run every 2 days at 04:00 UTC (well within Supabase's 7-day pause window)
+    - cron: '0 4 */2 * *'
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Database REST API
+        run: |
+          echo "Pinging Supabase to keep project active..."
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            "https://lgzqxzfepgfatdseiwxh.supabase.co/rest/v1/auto_products?select=id&limit=1")
+          
+          echo "HTTP Status Code: $HTTP_STATUS"
+          echo "Response:"
+          cat response.json
+          
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
+            echo "Successfully pinged Supabase. Inactivity timer reset!"
+          else
+            echo "Warning: Received HTTP $HTTP_STATUS (Project might be paused or restoring)."
+          fi

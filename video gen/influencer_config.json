@@ -1,0 +1,18 @@
+{
+  "influencer_name": "Aria Vance",
+  "niche": "Luxury Streetwear, Aesthetic Lifestyle & City Life",
+  "character_prompt": "A stunning 23-year-old AI fashion & lifestyle influencer, radiant natural skin, captivating hazel-green eyes, sleek brunette hair with subtle caramel highlights, wearing chic contemporary streetwear, minimalist jewelry, elegant confident aura, 8k photorealistic, cinematic volumetric lighting, 35mm film aesthetic",
+  "reference_image_path": "",
+  "clips_per_reel": 5,
+  "clip_duration_seconds": 10,
+  "total_reel_duration_seconds": 50,
+  "daily_post_time": "19:00",
+  "auto_generate_daily_prompts": true,
+  "platforms": [
+    "instagram",
+    "youtube",
+    "facebook"
+  ],
+  "scheduler_enabled": true,
+  "cloud_api_url": "https://nextjs-poster-eta.vercel.app"
+}

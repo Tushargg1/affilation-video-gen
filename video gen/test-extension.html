@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Test - Digen.ai Simulator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0f0f0f;
+            color: #fff;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { margin-bottom: 30px; color: #3b82f6; }
+        .section {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h2 { font-size: 16px; margin-bottom: 12px; color: #a0a0a0; }
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+        }
+        textarea:focus { outline: none; border-color: #3b82f6; }
+        button {
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+        button:hover { background: #2563eb; }
+        .log {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #222;
+        }
+        .log-entry:last-child { border-bottom: none; }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .info { color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Digen AI Extension Test Page</h1>
+
+        <div class="section">
+            <h2>Video Prompt</h2>
+            <textarea id="videoPrompt" placeholder="Enter your video description here...">miniature toy train moving through a detailed model railway landscape, realistic scenery, 4K quality, smooth motion</textarea>
+            <button id="createBtn">Create</button>
+
+            <div class="log" id="eventLog">
+                <div class="log-entry info">Ready - waiting for extension...</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📋 Test Instructions</h2>
+            <ol style="line-height: 1.8; color: #a0a0a0;">
+                <li>Open Edge and go to <code>edge://extensions/</code></li>
+                <li>Find "Digen AI Video Generator" and click the refresh icon (🔄) to reload it</li>
+                <li>Come back to this page and refresh it (F5)</li>
+                <li>Click the extension icon in your toolbar</li>
+                <li>Click "🚀 Generate Video" in the popup</li>
+                <li>Watch the log below - it should show the extension working</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>🔍 Page Info</h2>
+            <div style="color: #a0a0a0; line-height: 1.6;">
+                <div>URL: <code id="pageUrl"></code></div>
+                <div>Hostname: <code id="pageHost"></code></div>
+                <div>Textareas: <span id="textareaCount">0</span></div>
+                <div>Buttons: <span id="buttonCount">0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const log = document.getElementById('eventLog');
+        const textarea = document.getElementById('videoPrompt');
+        const createBtn = document.getElementById('createBtn');
+
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+            console.log(message);
+        }
+
+        // Monitor textarea changes
+        textarea.addEventListener('input', function() {
+            addLog(`Textarea changed (${this.value.length} chars)`, 'success');
+        });
+
+        textarea.addEventListener('change', function() {
+            addLog('Textarea change event fired', 'success');
+        });
+
+        // Monitor button clicks
+        createBtn.addEventListener('click', function() {
+            addLog('✓ Create button clicked!', 'success');
+            addLog(`Current prompt: "${textarea.value.substring(0, 50)}..."`, 'info');
+        });
+
+        // Update page info
+        document.getElementById('pageUrl').textContent = window.location.href;
+        document.getElementById('pageHost').textContent = window.location.hostname;
+        document.getElementById('textareaCount').textContent = document.querySelectorAll('textarea').length;
+        document.getElementById('buttonCount').textContent = document.querySelectorAll('button').length;
+
+        // Log when extension connects
+        addLog('Page loaded and ready', 'info');
+
+        // Detect if extension loaded
+        setTimeout(() => {
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                addLog('Chrome extension API detected', 'success');
+            } else {
+                addLog('Extension API not detected', 'error');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
