@@ -146,11 +146,15 @@ async function handler(request: Request) {
     let platformErrors: string[] = [];
 
     // 1. Upload VIDEO to YouTube
-    if (platforms.includes('youtube') && process.env.YOUTUBE_CLIENT_ID && process.env.YOUTUBE_REFRESH_TOKEN) {
+    const ytClientId = config.youtube_client_id || process.env.YOUTUBE_CLIENT_ID;
+    const ytClientSecret = config.youtube_client_secret || process.env.YOUTUBE_CLIENT_SECRET;
+    const ytRefreshToken = config.youtube_refresh_token || process.env.YOUTUBE_REFRESH_TOKEN;
+
+    if (platforms.includes('youtube') && ytClientId && ytRefreshToken) {
         try {
             console.log('Uploading video to YouTube...');
-            const oauth2Client = new google.auth.OAuth2(process.env.YOUTUBE_CLIENT_ID, process.env.YOUTUBE_CLIENT_SECRET, 'https://developers.google.com/oauthplayground');
-            oauth2Client.setCredentials({ refresh_token: process.env.YOUTUBE_REFRESH_TOKEN });
+            const oauth2Client = new google.auth.OAuth2(ytClientId, ytClientSecret, 'https://developers.google.com/oauthplayground');
+            oauth2Client.setCredentials({ refresh_token: ytRefreshToken });
             const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
             
             const stream = new Readable();
